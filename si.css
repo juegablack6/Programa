@@ -1,37 +1,70 @@
-
 /*Degradado de arriba a abajo*/
-body{
+body {
     background: linear-gradient(to bottom, darkr, mediumvioletred)
 }
 
 /*Degradado de izquierda a derecha*/
-body{
+body {
     background: linear-gradient(to right, blueviolet, mediumvioletred)
 }
 
 /*Degradado en diagonal (de esquina a esquina)*/
-body{
+body {
     background: linear-gradient(45deg, blueviolet, mediumvioletred)
 }
 
 /*Degradado en radial (circulo)*/
-body{
+body {
     background: linear-gradient(circle, blueviolet, mediumvioletred)
 }
 
 /*Imagen de fondo*/
 .fondo {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  z-index: -1;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: -1;
+}
+
+/* Version más estable de la primera version */
+.fondo-menu {
+    position: fixed;
+    inset: 0;
+    /* reemplaza top/left/width/height */
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: -1;
+    pointer-events: none;
+    /* MUY importante */
+}
+
+
+/* Segunda forma de poner una imagen de fondo */
+.fondo-menu {
+    min-height: 100vh;
+    background-image: url("../images/fondo_menu2.jpg");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
 }
 
 /* Tipos de moviles */
-@media (max-width: 1200px) { /* laptops grandes */ }
-@media (max-width: 992px)  { /* tablets horizontales */ }
-@media (max-width: 768px)  { /* tablets verticales */ }
-@media (max-width: 576px)  { /* celulares */ }
+@media (max-width: 1200px) {
+    /* laptops grandes */
+}
+
+@media (max-width: 992px) {
+    /* tablets horizontales */
+}
+
+@media (max-width: 768px) {
+    /* tablets verticales */
+}
+
+@media (max-width: 576px) {
+    /* celulares */
+}

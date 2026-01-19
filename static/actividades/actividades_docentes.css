@@ -1,9 +1,10 @@
-.container{
+.container {
     display: flex;
     flex-direction: column;
     align-items: center;
-    width: 10em;
-    max-width: 30em;
+    width: 100%;
+    min-width: 300px;
+    max-width: 100%;
     margin: 0 auto;
     padding: 3em;
     border-top: 0.3em solid #027532;
@@ -15,6 +16,7 @@
     background-color: #e9e9e9;
     text-align: center;
     margin-top: 6em;
+    color: #027532;
 }
 
 .boton-volver {
@@ -27,7 +29,7 @@
     margin-top: 20px;
     transition: background-color 0.3s;
     animation: slideIn 0.8s ease forwards;
-    opacity: 0; 
+    opacity: 0;
     transform: translateY(90px);
 }
 
@@ -55,26 +57,40 @@ h1 {
     opacity: 0;
     transform: translateY(90px);
 }
+
 .fondo-menu {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  z-index: -1;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: -1;
 }
+
 .boton-zona:hover {
     background-color: #00d659;
 }
+
 @keyframes aparecer {
-    from { opacity: 0; transform: translateY(-90px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(-90px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 @keyframes slideIn {
-    to { opacity: 1; transform: translateY(0); }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
+
 .flashes {
     list-style: none;
     padding: 0;
@@ -96,10 +112,11 @@ h1 {
     background-color: #f44336;
 }
 
-table{
+table {
     width: 100%;
     background: #ffffff;
     border-collapse: collapse;
+    font-family: Bold;
     font-size: 0.9em;
     overflow-x: auto;
     display: block;
@@ -152,7 +169,7 @@ table tbody tr:nth-child(even) {
 }
 
 table tbody tr:hover {
-    background-color: #e3f2fd;
+    background-color: #a6d0ee;
     transform: translateY(-1px);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -160,11 +177,47 @@ table tbody tr:hover {
 table tbody tr:last-child td {
     border-bottom: none;
 }
-.estado-activo { 
-    color: green; 
-    font-weight: bold; 
-} 
-.estado-inactivo { 
-    color: red; 
-    font-weight: bold; 
-} 
+
+th {
+    background: #027532;
+    color: #ffffff;
+    padding: 20px 90px;
+    transition: background 0.8s ease;
+}
+
+th:hover {
+    background: #013316;
+    color: #00d659;
+}
+
+.estado-activo {
+    color: green;
+    font-weight: bold;
+}
+
+.estado-inactivo {
+    color: red;
+    font-weight: bold;
+}
+
+.descripcion {
+    width: 70%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+    margin-top: 6px;
+    font-size: 14px;
+}
+
+.gatito {
+    width: 10%;
+    max-width: 16%;
+    min-width: 7%;
+    margin-left: 50%;
+    margin-top: -110px;
+    transition: background-color 0.3s;
+    animation: slideIn 0.8s ease forwards;
+    opacity: 0;
+    transform: translateY(-90px);
+}

@@ -11,7 +11,14 @@ CREATE TABLE actividades (
     estado VARCHAR(50) DEFAULT 'Activo', 
     INDEX idx_numero_actividad (numero_actividad) 
 ); 
- 
+ALTER TABLE actividades
+ADD descripcion TEXT,
+ADD archivo_docente VARCHAR(500);
+SELECT * FROM entregas_actividades;
+DESCRIBE alumnos;
+
+SELECT archivo_docente FROM actividades;
+
 -- ENTREGAS (TIPOS IGUALES) 
 CREATE TABLE entregas_actividades ( 
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, 
@@ -24,11 +31,19 @@ CREATE TABLE entregas_actividades (
     INDEX idx_numero_actividad (numero_actividad), 
     INDEX idx_numero_control (numero_control_alumno) 
 ); 
-SELECT * FROM entregas_actividades;
+
+
+
+SELECT * FROM usuarios;
 DELETE FROM entregas_actividades;
-SELECT *
-FROM entregas_actividades
-ORDER BY numero_actividad, numero_control_alumno;
+SELECT NumeroControl, Nombre, Paterno, Materno, Grupo
+FROM alumnos
+ORDER BY NumeroControl;
+SELECT * FROM entregas_actividades WHERE numero_actividad = 1;
+
+SHOW COLUMNS FROM entregas_actividades;
+
+
 
 
 CREATE TABLE alumnos_old_login(
@@ -37,8 +52,8 @@ usuario varchar(255),
 correo varchar(255),
 contrasena varchar(255));
 select * from usuarios;
-delete from alumnos;
-select * from alumnos;
+delete from actividades where numero_actividad = 2;
+select * from actividades;
 
 -- Grupo 101
 INSERT INTO alumnos (NumeroControl, Curp, Nombre, Paterno, Materno, Turno, Grupo, Semestre)
@@ -439,3 +454,15 @@ ALTER TABLE usuarios
   ADD COLUMN semestre VARCHAR(10) NULL,
   ADD COLUMN materia VARCHAR(200) NULL;
 SELECT * FROM usuarios;
+ALTER TABLE usuarios
+ADD intentos_fallidos INT DEFAULT 0,
+ADD bloqueado_hasta DATETIME NULL;
+ALTER TABLE usuarios
+ADD activo BOOLEAN DEFAULT 0,
+ADD token_confirmacion VARCHAR(255);
+
+SELECT * FROM usuarios;
+DELETE FROM usuarios where id = 2147483647;
+UPDATE usuarios SET activo = 1 WHERE id= 1;
+
+USE proyecto;

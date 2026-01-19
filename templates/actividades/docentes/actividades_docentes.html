@@ -6,7 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Docentes actividades</title>
     <link rel="stylesheet" href="/static/actividades/actividades_docentes.css">
-    <link rel="stylesheet" href="/static/boostrap/css/bootstrap.min.css">
 </head>
 
 <body>
@@ -16,10 +15,10 @@
     {% block content %}
 
     <div class="container">
-        <form method="POST">
+        <form method="POST" enctype="multipart/form-data">
             {% with messages = get_flashed_messages() %}
             {% if messages %}
-            <ul class="flashes">
+            <ul class=" flashes">
                 {% for message in messages %}
                 <li>{{ message }}</li>
                 {% endfor %}
@@ -34,55 +33,71 @@
             <input type="text" id="maestro" name="maestro" required>
             <label for="fecha_entrega">Fecha de entrega</label>
             <input type="datetime-local" id="fecha_entrega" name="fecha_entrega" required><br><br>
+            <label for="archivo_docente">Archivo para alumnos:</label><br>
+            <input type="file" id="archivo_docente" name="archivo_docente"><br><br>
+            <label for="descripcion">Descripción:</label><br>
+            <input type="text" id="descripcion" name="descripcion" class="descripcion" required></input><br><br>
 
             <button type="submit" class="boton-zona">Ingresar</button>
             <button type="button" onclick="window.location.href='/menu/docentes'" class="boton-volver"><---Volver
                     </button>
+
         </form>
 
     </div>
 
 
     <div class="container">
-        <form method="POST">
-            {% if actividades %}
-            <h1>Actividades ya ingresadas</h1>
-            <table border="1">
-                <tr>
-                    <th>Numero de actividad</th>
-                    <th>Nombre de actividad</th>
-                    <th>Maestro</th>
-                    <th>Fecha de entrega</th>
-                    <th>Estado</th>
-                    <th>Acciones</th>
-                </tr>
-                {% for fila in actividades %}
-                <tr>
-                    <td> {{ fila.numero_actividad }} </td>
-                    <td> {{ fila.nombre }} </td>
-                    <td> {{ fila.maestro }} </td>
-                    <td> {{ fila.fecha_entrega }} </td>
-                    <td> {{ fila.estado }}</td>
-                    <td>
-                        <button type="button"
-                            onclick="window.location.href='{{ url_for('editar_actividad', numero_actividad=fila.numero_actividad) }}'"
-                            class="boton-zona">Editar</button><br>
-                        <button type="button"
-                            onclick="window.location.href='{{ url_for('ver_entregas_docente', actividad_id=fila.numero_actividad) }}'"
-                            class="boton-zona">Ver Entregas</button><br>
-                        <form action="{{ url_for('eliminar_actividad', numero_actividad=fila.numero_actividad) }}"
-                            method="post">
-                            <button type="button"
-                                onclick="return confirm('¿Eliminar la actividad {{ fila.actividas_nombre }}');"
-                                class="boton-volver">Eliminar</button>
-                    </td>
-        </form>
+        {% if actividades %}
+        <h1>Actividades ya ingresadas</h1>
+        <table border="1">
+            <tr>
+                <th>Numero de actividad</th>
+                <th>Nombre de actividad</th>
+                <th>Maestro</th>
+                <th>Fecha de entrega</th>
+                <th>Estado</th>
+                <th>Descripción</th>
+                <th>Acciones</th>
+            </tr>
+            {% for fila in actividades %}
+            <tr>
+                <td> {{ fila.numero_actividad }} </td>
+                <td> {{ fila.nombre }} </td>
+                <td> {{ fila.maestro }} </td>
+                <td> {{ fila.fecha_entrega }} </td>
+                <td> {{ fila.estado }}</td>
+                <td> {{ fila.descripcion }}</td>
+                <td>
+                    <button type="button"
+                        onclick="window.location.href='{{ url_for('editar_actividad', numero_actividad=fila.numero_actividad) }}'"
+                        class="boton-zona">Editar</button><br>
+                    <button type="button"
+                        onclick="window.location.href='{{ url_for('ver_entregas_docente', actividad_id=fila.numero_actividad) }}'"
+                        class="boton-zona">Ver Entregas</button><br>
+                    <form action="{{ url_for('eliminar_actividad_docente', numero_actividad=fila.numero_actividad) }}"
+                        method="POST" style="display:inline;"
+                        onsubmit="return confirm('¿Seguro que deseas eliminar esta actividad?');">
 
-        </tr>
-        {% endfor %}
+                        <button type="submit" class="boton-volver">
+                            🗑️ Eliminar
+                        </button>
+                    </form><br>
+                    <button type="button"
+                        onclick="window.open('{{ url_for('imprimir_actividad', numero_actividad=fila.numero_actividad) }}', '_blank')"
+                        class="boton-zona">
+                        🖨️ Imprimir
+                    </button>
+
+
+                </td>
+
+            </tr>
+            {% endfor %}
         </table>
+        {% else %}
+        <h1>No hay actividades por el momento.</h1> <img src="/static/gatito fino.jpg" class="gatito">
         {% endif %}
-        </form>
         <img src="/static/Cecytem_(Imagen).jpeg" class="fondo-menu">
     </div>
     {% endblock %}

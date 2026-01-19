@@ -2,8 +2,9 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    width: 70%;
-    max-width: 100em;
+    width: 100%;
+    min-width: 300px;
+    max-width: 100%;
     margin: 0 auto;
     padding: 3em;
     border-top: 0.3em solid #027532;
@@ -108,7 +109,7 @@ h1 {
 }
 
 table {
-    width: 100%;
+    width: 107%;
     background: #ffffff;
     border-collapse: collapse;
     font-size: 0.9em;

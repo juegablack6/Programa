@@ -36,7 +36,9 @@
                             <th>Maestro</th>
                             <th>Fecha Límite</th>
                             <th>Estado</th>
+                            <th>Descripción</th>
                             <th>Acción</th>
+                            <th>Material</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -50,6 +52,7 @@
                                 class="{% if actividad.estado_actual == 'Activo' %}estado-activo{% else %}estado-inactivo{% endif %}">
                                 {{ actividad.estado_actual }}
                             </td>
+                            <td>{{ actividad.descripcion }}</td>
                             <td>
                                 {% if actividad.estado_actual == 'Activo' and not actividad.ya_entregada %}
                                 <form
@@ -57,19 +60,33 @@
                                     method="post" enctype="multipart/form-data">
                                     <input type="file" name="archivo" required><br>
                                     <button type="submit" class="boton-zona">Enviar</button>
-                                </form>
+                                </form><br>
+
                                 {% elif actividad.ya_entregada %}
                                 <p class="entregada">Ya entregada</p>
                                 {% else %}
                                 <p class="inactiva">Actividad Inactiva</p>
                                 {% endif %}
                             </td>
+                            <td>
+                                {% if actividad.archivo_docente %}
+                                <a href="{{ url_for('descargar_material_docente', filename=actividad.archivo_docente) }}"
+                                    class="boton-zona">
+                                    Descargar material
+                                </a>
+                                {% else %}
+                                Sin material
+                                {% endif %}
+
+
+
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
                 {% else %}
-                <p>No hay actividades disponibles.</p>
+                <h1>🎉No hay actividades asignadas por el momento.🎉🥳</h1>
                 {% endif %}
     </div>
     <img src="/static/Cecytem_(Imagen).jpeg" class="fondo-menu">

@@ -6,14 +6,19 @@ from werkzeug.utils import secure_filename
 import os 
 import shutil 
 import time 
-from datetime import timedelta 
+from datetime import timedelta, datetime
 import speech_recognition as sr 
 from flask_socketio import SocketIO, emit 
 import subprocess 
 import traceback # Importar traceback para depuración 
 from datetime import datetime 
- 
- 
+import secrets
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+
+
 # Intentar importar Vosk para reconocimiento offline 
 try: 
     from vosk import Model, KaldiRecognizer 
@@ -26,7 +31,9 @@ except ImportError:
 app = Flask(__name__) 
 app.secret_key = "Clavesuperhipermegasupremaparaguardarcosasydemascosasenlasessionyensecreto" 
 socketio = SocketIO(app) 
- 
+EMAIL_SISTEMA = "correoenviadordecorreosdeconfi@gmail.com"
+EMAIL_PASSWORD = "jvee fkuc nufd zdao"
+
 # Optional cached Whisper (Python) model - loaded on first use if available 
 WHISPER_PY_MODEL = None 
  
@@ -43,14 +50,14 @@ def allowed_file(filename):
 # Configuración de SESIÓN 
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=5) 
 app.permanent_session_lifetime = timedelta(minutes=5) 
- 
+
 # Conexión a la Base de Datos 
 def get_db_connection():
     return mysql.connector.connect(
         host="localhost",
         user="root",
         password="",
-        database="materias_db"
+        database="proyecto"
     )
 db = get_db_connection()
  
@@ -133,13 +140,68 @@ def inicio():
 # --- RUTAS DE ALUMNOS ------------------------------- 
 # ----------------------------------------------------- 
  
-# Menú de alumnos 
-@app.route("/menu/alumnos", methods=["GET", "POST"]) 
-@login_required("alumno") 
-def menu_alumnos(): 
-    alumno = session.get("nombre_completo") or session.get("usuario") or session.get("alumno_nombre") or session.get("docente") or session.get("alumno_nc") or "Usuario" 
-    return render_template("menus/menu_alumnos.html", alumno=alumno) 
- 
+@app.route("/menu/alumnos")
+@login_required("alumno")
+def menu_alumnos():
+    cursor = db.cursor()
+
+    alumno = session.get("nombre_completo") or session.get("usuario") or "Alumno"
+    num_control = session.get("user_id")  # tu NC / ID real
+
+    # Total actividades
+    cursor.execute("SELECT COUNT(*) FROM actividades WHERE estado = 'Activo'")
+    total_actividades = cursor.fetchone()[0]
+
+    # Entregadas
+    cursor.execute("""
+        SELECT COUNT(DISTINCT numero_actividad)
+        FROM entregas_actividades
+        WHERE numero_control_alumno = %s
+    """, (num_control,))
+    entregadas = cursor.fetchone()[0]
+
+    # Vencidas sin entregar
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM actividades
+        WHERE estado = 'Activo'
+        AND fecha_entrega < NOW()
+        AND numero_actividad NOT IN (
+            SELECT numero_actividad
+            FROM entregas_actividades
+            WHERE numero_control_alumno = %s
+        )
+    """, (num_control,))
+    vencidas = cursor.fetchone()[0]
+
+    # Próximas a vencer (3 días)
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM actividades
+        WHERE estado = 'Activo'
+        AND fecha_entrega BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 3 DAY)
+        AND numero_actividad NOT IN (
+            SELECT numero_actividad
+            FROM entregas_actividades
+            WHERE numero_control_alumno = %s
+        )
+    """, (num_control,))
+    proximas = cursor.fetchone()[0]
+
+    cursor.close()
+
+    progreso = int((entregadas / total_actividades) * 100) if total_actividades else 0
+
+    return render_template(
+        "menus/menu_alumnos.html",
+        alumno=alumno,
+        total_actividades=total_actividades,
+        entregadas=entregadas,
+        vencidas=vencidas,
+        proximas=proximas,
+        progreso=progreso
+    )
+
 # Actividades de alumnos 
 # Actividades de alumnos (ahora con botón de entrega) 
 @app.route("/actividades/alumnos", methods=['GET']) 
@@ -153,7 +215,19 @@ def actividades_alumnos():
     try: 
         cursor = db.cursor(dictionary=True) 
         # Seleccionar todas las actividades 
-        cursor.execute("SELECT numero_actividad, nombre, maestro, fecha_entrega, estado FROM actividades ORDER BY fecha_entrega DESC") 
+        cursor.execute("""
+    SELECT 
+        numero_actividad,
+        nombre,
+        maestro,
+        descripcion,
+        archivo_docente,
+        fecha_entrega,
+        estado
+    FROM actividades
+    ORDER BY fecha_entrega DESC
+""")
+ 
         actividades = cursor.fetchall() 
  
         # Obtener las actividades que este alumno ya entregó 
@@ -271,12 +345,27 @@ def logout_docentes():
 # ----------------------------------------------------- 
  
 # Menú de docentes 
-@app.route("/menu/docentes", methods=["GET", "POST"]) 
-@login_required("docente") 
-def menu_docentes(): 
-    docente = session.get("nombre_completo") or session.get("usuario") or session.get("docente") or session.get("alumno_nombre") or "Usuario" 
-    return render_template("menus/menu_docentes.html", docente=docente) 
- 
+@app.route("/menu/docentes", methods=["GET"])
+@login_required("docente")
+def menu_docentes():
+    docente = session.get("nombre_completo") or "Docente"
+    cursor = db.cursor(dictionary=True)
+
+    cursor.execute("SELECT COUNT(*) AS total FROM actividades")
+    total_actividades = cursor.fetchone()["total"]
+
+    cursor.execute("SELECT COUNT(*) AS total FROM entregas_actividades")
+    total_entregas = cursor.fetchone()["total"]
+
+    cursor.close()
+
+    return render_template(
+        "menus/menu_docentes.html",
+        docente=docente,
+        total_actividades=total_actividades,
+        total_entregas=total_entregas
+    )
+
 # ----------------------------------------------------- 
 # --- RUTAS GENERALES ------------------------------- 
 # ----------------------------------------------------- 
@@ -375,52 +464,73 @@ def get_activity_status(fecha_entrega_data):
 # --- RUTAS DE ACTIVIDADES (DOCENTES) ----------------- 
 # ----------------------------------------------------- 
   
-@app.route("/actividades/docentes", methods=["GET", "POST"]) 
-@login_required("docente") 
-def actividades_docentes(): 
-    if request.method == "POST": 
-        try: 
-            nombre = request.form.get("nombre") 
-            maestro = request.form.get("maestro") 
-            fecha_entrega = request.form.get("fecha_entrega") 
-             
-            # ✅ Estado: Activo/Inactivo (NO Pendiente) 
-            estado = get_activity_status(fecha_entrega) 
- 
-            cursor = db.cursor() 
-            sql = """ 
-                INSERT INTO actividades (nombre, maestro, fecha_entrega, estado) 
-                VALUES (%s, %s, %s, %s) 
-            """ 
-            cursor.execute(sql, (nombre, maestro, fecha_entrega, estado)) 
-            db.commit() 
-            cursor.close() 
-            flash("✅ Actividad creada correctamente.") 
-            return redirect(url_for("actividades_docentes")) 
-        except Exception as e: 
-            print(f"Error: {e}") 
-            flash(f"Error: {e}") 
- 
-    # Mostrar actividades 
-    cursor = db.cursor(dictionary=True) 
-    cursor.execute("SELECT * FROM actividades ORDER BY numero_actividad DESC") 
-    actividades = cursor.fetchall() 
-    cursor.close() 
-     
-    # Calcular estado actual (Activo/Inactivo) 
-    for act in actividades: 
-        act['estado_actual'] = get_activity_status(act['fecha_entrega']) 
-        # Formato legible para tabla 
-        if isinstance(act['fecha_entrega'], datetime): 
-            act['fecha_display'] = act['fecha_entrega'].strftime('%d/%m/%Y %H:%M') 
-        else: 
-            try: 
-                dt = datetime.strptime(str(act['fecha_entrega']), '%Y-%m-%d %H:%M:%S') 
-                act['fecha_display'] = dt.strftime('%d/%m/%Y %H:%M') 
-            except: 
-                act['fecha_display'] = str(act['fecha_entrega']) 
-     
-    return render_template("actividades/docentes/actividades_docentes.html", actividades=actividades) 
+@app.route("/actividades/docentes", methods=["GET", "POST"])
+@login_required("docente")
+def actividades_docentes():
+    if request.method == "POST":
+        try:
+            nombre = request.form.get("nombre")
+            maestro = request.form.get("maestro")
+            fecha_entrega = request.form.get("fecha_entrega")
+            descripcion = request.form.get("descripcion")
+            archivo = request.files.get("archivo_docente")
+
+            archivo_docente = None  # 👈 valor por defecto
+
+            if archivo and archivo.filename != "":
+                filename = secure_filename(archivo.filename)
+                carpeta = os.path.join("uploads", "material_docente")
+                os.makedirs(carpeta, exist_ok=True)
+
+                ruta = os.path.join(carpeta, filename)
+                archivo.save(ruta)
+
+                # ✅ SOLO guardamos el nombre
+                archivo_docente = filename
+
+            estado = get_activity_status(fecha_entrega)
+
+            cursor = db.cursor()
+            sql = """
+                INSERT INTO actividades 
+                (nombre, maestro, fecha_entrega, estado, descripcion, archivo_docente)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """
+            cursor.execute(sql, (
+                nombre,
+                maestro,
+                fecha_entrega,
+                estado,
+                descripcion,
+                archivo_docente  # ✅ AQUÍ YA ESTÁ BIEN
+            ))
+            db.commit()
+            cursor.close()
+
+            flash("✅ Actividad creada correctamente.")
+            return redirect(url_for("actividades_docentes"))
+
+        except Exception as e:
+            print(f"Error: {e}")
+            flash(f"Error: {e}")
+
+    # Mostrar actividades
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM actividades ORDER BY numero_actividad DESC")
+    actividades = cursor.fetchall()
+    cursor.close()
+
+    return render_template(
+        "actividades/docentes/actividades_docentes.html",
+        actividades=actividades
+    )
+
+@app.route("/material_docente/<path:filename>")
+@login_required("alumno")
+def descargar_material_docente(filename):
+    carpeta = os.path.join("uploads", "material_docente")
+    return send_from_directory(carpeta, filename, as_attachment=True)
+
  
 # --- RUTAS DE DOCENTES (nuevas rutas) --- 
  
@@ -510,83 +620,161 @@ def descargar_entrega(numero_actividad, filename):
         flash("Archivo no encontrado.", "error") 
         return redirect(url_for('ver_entregas_docente')) 
      
-@app.route('/actividades/editar/<int:numero_actividad>', methods=['GET','POST']) 
-@login_required("docente") 
-def editar_actividad(numero_actividad): 
-    cursor = None 
-    try: 
-        cursor = db.cursor(dictionary=True) 
-         
-        if request.method == 'POST': 
-            nombre = request.form['nombre'].strip() 
-            maestro = request.form['maestro'].strip() 
-            fecha_entrega = request.form['fecha_entrega'].strip() 
-             
-            # ✅ Estado: Activo/Inactivo 
-            estado = get_activity_status(fecha_entrega) 
-             
-            if not all([nombre, maestro, fecha_entrega]): 
-                flash("Todos los campos son obligatorios.", "error") 
-                return redirect(url_for('editar_actividad', numero_actividad=numero_actividad)) 
+@app.route('/actividades/editar/<int:numero_actividad>', methods=['GET', 'POST'])
+@login_required("docente")
+def editar_actividad(numero_actividad):
+    cursor = db.cursor(dictionary=True)
+
+    try:
+        # 🔎 Obtener actividad actual
+        cursor.execute(
+            "SELECT * FROM actividades WHERE numero_actividad = %s",
+            (numero_actividad,)
+        )
+        actividad = cursor.fetchone()
+
+        if not actividad:
+            flash("Actividad no encontrada.", "error")
+            return redirect(url_for('actividades_docentes'))
+
+        if request.method == 'POST':
+            nombre = request.form.get('nombre', '').strip()
+            maestro = request.form.get('maestro', '').strip()
+            fecha_entrega = request.form.get('fecha_entrega', '').strip()
+            descripcion = request.form.get('descripcion', '').strip()
+
+            if not all([nombre, maestro, fecha_entrega, descripcion]):
+                flash("Todos los campos son obligatorios.", "error")
+                return redirect(
+                    url_for('editar_actividad', numero_actividad=numero_actividad)
+                )
+
+            # ✅ Estado automático
+            estado = get_activity_status(fecha_entrega)
+
+            # 📎 Manejo de archivo
+            archivo = request.files.get("archivo_docente")
+            archivo_docente = actividad['archivo_docente']  # conservar por defecto
+
+            if archivo and archivo.filename != "":
+                filename = secure_filename(archivo.filename)
+                carpeta = os.path.join("uploads", "material_docente")
+                os.makedirs(carpeta, exist_ok=True)
+
+                ruta = os.path.join(carpeta, filename)
+                archivo.save(ruta)
+
+                archivo_docente = filename  # reemplazar
+
+            # 🔄 Update
+            sql = """
+                UPDATE actividades
+                SET nombre=%s,
+                    maestro=%s,
+                    fecha_entrega=%s,
+                    estado=%s,
+                    descripcion=%s,
+                    archivo_docente=%s
+                WHERE numero_actividad=%s
+            """
+            cursor.execute(sql, (
+                nombre,
+                maestro,
+                fecha_entrega,
+                estado,
+                descripcion,
+                archivo_docente,
+                numero_actividad
+            ))
+            db.commit()
+
+            flash("✅ Actividad actualizada correctamente.")
+            return redirect(url_for('actividades_docentes'))
+
+        return render_template(
+            "actividades/docentes/editar_actividad.html",
+            actividad=actividad
+        )
+
+    except Exception as e:
+        flash(f"Error: {e}", "error")
+        return redirect(url_for('actividades_docentes'))
+
+    finally:
+        cursor.close()
+
+@app.route("/actividades/imprimir/<int:numero_actividad>")
+@login_required()
+def imprimir_actividad(numero_actividad):
+    cursor = db.cursor(dictionary=True)
+
+    # 1️⃣ Obtener actividad
+    cursor.execute("""
+        SELECT numero_actividad, nombre, descripcion, archivo_docente
+        FROM actividades
+        WHERE numero_actividad = %s
+    """, (numero_actividad,))
+    actividad = cursor.fetchone()
+
+    if not actividad:
+        flash("Actividad no encontrada", "error")
+        return redirect(url_for("actividades_docentes"))
+
+    # 2️⃣ Obtener alumnos que entregaron
+    cursor.execute("""
+    SELECT 
+        a.NumeroControl,
+        a.Nombre,
+        a.Paterno,
+        a.Materno,
+        e.fecha_entrega
+    FROM entregas_actividades e
+    JOIN alumnos a 
+        ON a.NumeroControl = e.numero_control_alumno
+    WHERE e.numero_actividad = %s
+    ORDER BY a.Paterno
+""", (numero_actividad,))
+
+    entregados = cursor.fetchall()
+
+    cursor.close()
+
+    return render_template(
+        "actividades/docentes/imprimir_actividad.html",
+        actividad=actividad,
+        entregados=entregados
+    )
+
  
-            sql = "UPDATE actividades SET nombre=%s, maestro=%s, fecha_entrega=%s, estado=%s WHERE numero_actividad=%s" 
-            cursor.execute(sql, (nombre, maestro, fecha_entrega, estado, numero_actividad)) 
-            db.commit() 
-            flash("✅ Actividad actualizada.") 
-            return redirect(url_for('actividades_docentes')) 
-         
-        cursor.execute("SELECT * FROM actividades WHERE numero_actividad = %s", (numero_actividad,)) 
-        actividad = cursor.fetchone() 
-         
-        if not actividad: 
-            flash("Actividad no encontrada.", "error") 
-            return redirect(url_for('menu_docentes')) 
-         
-        # Formatear fecha para input datetime-local 
-        if isinstance(actividad['fecha_entrega'], datetime): 
-            actividad['fecha_entrega_formatted'] = actividad['fecha_entrega'].strftime('%Y-%m-%dT%H:%M') 
-        else: 
-            try: 
-                dt = datetime.strptime(str(actividad['fecha_entrega']), '%Y-%m-%d %H:%M:%S') 
-                actividad['fecha_entrega_formatted'] = dt.strftime('%Y-%m-%dT%H:%M') 
-            except: 
-                actividad['fecha_entrega_formatted'] = '' 
-         
-        return render_template('/actividades/docentes/editar_actividad.html', actividad=actividad) 
-         
-    except Exception as e: 
-        flash(f"Error: {e}", "error") 
-        return redirect(url_for('actividades_docentes')) 
-    finally: 
-        if cursor: 
-            cursor.close() 
  
- 
-@app.route('/actividades/eliminar/<int:numero_actividad>', methods=['POST']) 
-@login_required("docente") 
-def eliminar_actividad(numero_actividad): 
-    cursor = None 
-    try: 
-        cursor = db.cursor() 
-         
-        # Verifica que la actividad existe antes de eliminar 
-        cursor.execute("SELECT numero_actividad FROM actividades WHERE numero_actividad = %s", (numero_actividad,)) 
-        if not cursor.fetchone(): 
-            flash("Actividad no encontrada.", "error") 
-            return redirect(url_for('menu_docentes')) 
-         
-        sql = "DELETE FROM actividades WHERE numero_actividad=%s" 
-        cursor.execute(sql, (numero_actividad,)) 
-        db.commit() 
-        flash("Actividad eliminada exitosamente.", "success") 
-         
-    except Exception as e: 
-        print(f"Error al eliminar actividad: {e}") 
-        flash(f"Error al eliminar actividad: {e}", "error") 
-    finally: 
-        if cursor: 
-            cursor.close() 
-    return redirect(url_for('menu_docentes')) 
+@app.route("/actividades/docentes/eliminar/<int:numero_actividad>", methods=["POST"])
+@login_required("docente")
+def eliminar_actividad_docente(numero_actividad):
+    try:
+        cursor = db.cursor()
+
+        # ⚠️ Primero borrar entregas relacionadas (MUY IMPORTANTE)
+        cursor.execute(
+            "DELETE FROM entregas_actividades WHERE numero_actividad = %s",
+            (numero_actividad,)
+        )
+
+        # Luego borrar la actividad
+        cursor.execute(
+            "DELETE FROM actividades WHERE numero_actividad = %s",
+            (numero_actividad,)
+        )
+
+        db.commit()
+        cursor.close()
+
+        flash("🗑️ Actividad eliminada correctamente.")
+        return redirect(url_for("actividades_docentes"))
+
+    except Exception as e:
+        print(f"Error al eliminar actividad: {e}")
+        flash(f"Error al eliminar actividad: {e}", "error")
+        return redirect(url_for("actividades_docentes"))
  
  
  
@@ -927,26 +1115,37 @@ def chat_general():
     ) 
  
  
-# Evento de envío de mensajes 
-@socketio.on("mensaje") 
-@login_required() 
-def manejar_mensaje(data): 
-    usuario = session.get("nombre_completo", "Invitado") 
-    tipo = session.get("rol", "ninguno") 
- 
-    mensaje = data["texto"] 
- 
-    # Guardar en la base de datos (usando la conexión global db) 
-    cursor = db.cursor() 
-    cursor.execute( 
-        "INSERT INTO chat_general (usuario, tipo_usuario, mensaje) VALUES (%s, %s, %s)", 
-        (usuario, tipo, mensaje) 
-    ) 
-    db.commit() 
- 
-    # Enviar mensaje a todos los conectados 
-    emit("nuevo_mensaje", {"usuario": usuario, "tipo": tipo, "texto": mensaje}, broadcast=True) 
- 
+@socketio.on("mensaje")
+def manejar_mensaje(data):
+    usuario = session.get("usuario")
+    tipo = data.get("tipo")
+    mensaje = data.get("texto", "").strip()
+
+    if not usuario or not mensaje:
+        return
+
+    cursor = db.cursor()
+    cursor.execute(
+        "INSERT INTO chat_general (usuario, tipo_usuario, mensaje) VALUES (%s, %s, %s)",
+        (usuario, tipo, mensaje)
+    )
+    db.commit()
+    cursor.close()
+
+    emit(
+        "nuevo_mensaje",
+        {
+            "usuario": usuario,
+            "tipo": tipo,
+            "texto": mensaje
+        },
+        broadcast=True
+    )
+
+
+def conectar():
+    print("🟢 Cliente conectado al socket")
+
  
 # ----------------------------------------------------- 
 # --- SISTEMA PARA RECONOCER QUE TIPO DE USUARIO ES. -- 
@@ -968,104 +1167,316 @@ def volver_menus():
 # ----------------------------------------------------- 
 # --- RUTA DE LOGIN GENERAL --------------------------- 
 # ----------------------------------------------------- 
-@app.route("/login/general", methods=["GET", "POST"]) 
-def login_general(): 
-    if request.method == "POST": 
-        identificador = request.form.get("usuario") 
-        password = request.form.get("contrasena") 
+
+@app.route("/login/general", methods=["GET", "POST"])
+def login_general():
+    if request.method == "POST":
+        identificador = request.form.get("usuario")
+        password = request.form.get("contrasena")
+        if session == "alumno":
+            return redirect(url_for("menu_alumnos"))
+        cursor = db.cursor(dictionary=True)
+
+        cursor.execute("""
+            SELECT 
+                id, usuario, correo, contrasena, rol, nombre_completo,
+                activo, intentos_fallidos, bloqueado_hasta,
+                bloqueado_hasta > NOW() AS bloqueado
+            FROM usuarios
+            WHERE usuario=%s OR correo=%s
+        """, (identificador, identificador))
+
+        user = cursor.fetchone()
+
+        if not user:
+            flash("Credenciales incorrectas", "error")
+            cursor.close()
+            return redirect(url_for("login_general"))
+
+        # 🚨 Cuenta no activada
+        if not user["activo"]:
+            flash("Debes confirmar tu cuenta por correo", "warning")
+            cursor.close()
+            return redirect(url_for("login_general"))
+
+        # 🧹 Si el bloqueo ya expiró → resetear
+        if user["bloqueado_hasta"] and not user["bloqueado"]:
+            cursor.execute("""
+                UPDATE usuarios
+                SET intentos_fallidos = 0,
+                    bloqueado_hasta = NULL
+                WHERE id = %s
+            """, (user["id"],))
+            db.commit()
+            user["intentos_fallidos"] = 0
+
+        # ⏳ Cuenta bloqueada
+        if user["bloqueado"]:
+            flash("Cuenta bloqueada por 1 minuto. Intenta más tarde.", "error")
+            cursor.close()
+            return redirect(url_for("login_general"))
+
+        # ❌ Contraseña incorrecta
+        if not check_password_hash(user["contrasena"], password):
+            intentos = user["intentos_fallidos"] + 1
+
+            if intentos >= 3:
+                cursor.execute("""
+                    UPDATE usuarios
+                    SET intentos_fallidos = %s,
+                        bloqueado_hasta = DATE_ADD(NOW(), INTERVAL 1 MINUTE)
+                    WHERE id = %s
+                """, (intentos, user["id"]))
+                flash("Demasiados intentos. Cuenta bloqueada por 1 minuto.", "error")
+            else:
+                cursor.execute("""
+                    UPDATE usuarios
+                    SET intentos_fallidos = %s
+                    WHERE id = %s
+                """, (intentos, user["id"]))
+                flash(f"Contraseña incorrecta ({intentos}/3)", "error")
+
+            db.commit()
+            cursor.close()
+            return redirect(url_for("login_general"))
+
+        # ✅ LOGIN CORRECTO → resetear intentos
+        cursor.execute("""
+            UPDATE usuarios
+            SET intentos_fallidos = 0,
+                bloqueado_hasta = NULL
+            WHERE id = %s
+        """, (user["id"],))
+        db.commit()
+
+        # 🔐 Sesión
+        session.clear()
+        session["user_id"] = user["id"]
+        session["usuario"] = user["usuario"]
+        session["correo"] = user["correo"]
+        session["rol"] = user["rol"]
+        session["nombre_completo"] = user["nombre_completo"]
+
+        cursor.close()
+
+        # 🔁 Redirección
+        if user["rol"] == "alumno":
+            return redirect(url_for("menu_alumnos"))
+        elif user["rol"] == "docente":
+            return redirect(url_for("menu_docentes"))
+        else:
+            return redirect(url_for("menu_alumnos"))
+
+        if "docente" not in session: 
+            flash("Debes iniciar sesión como docente primero.") 
+            return redirect(url_for("login_docentes")) 
+        return f(*args, **kwargs) 
+    return render_template("login/general/general.html")
  
-        conn = db 
-        cursor = conn.cursor() 
+@app.route("/registro/general", methods=["GET", "POST"])
+def registro_general():
+    if request.method == "POST":
+        # Datos generales
+        id_usuario = request.form.get("id")
+        usuario = request.form.get("usuario")
+        correo = request.form.get("correo")
+        password = request.form.get("contrasena")
+        confirmar = request.form.get("confirmar_contrasena")
+        rol = request.form.get("rol")
+
+        # Datos extra
+        grupo = request.form.get("grupo")
+        semestre = request.form.get("semestre")
+        materia = request.form.get("materia")
+
+        # Validación básica
+        if password != confirmar:
+            flash("Las contraseñas no coinciden", "error")
+            return redirect(url_for("registro_general"))
+
+        hash_pw = generate_password_hash(password)
+        token = secrets.token_urlsafe(32)
+
+        cursor = db.cursor()
+
+        # Verificar si ya existe
+        cursor.execute("""
+            SELECT id FROM usuarios
+            WHERE id=%s OR usuario=%s OR correo=%s
+        """, (id_usuario, usuario, correo))
+
+        if cursor.fetchone():
+            flash("Usuario, correo o ID ya existe", "error")
+            return redirect(url_for("registro_general"))
+
+        # INSERT limpio (sin duplicados)
+        sql = """
+        INSERT INTO usuarios (
+            id, usuario, correo, contrasena, rol,
+            grupo, semestre, materia,
+            activo, token_confirmacion
+        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        """
+
+        values = (
+            id_usuario,
+            usuario,
+            correo,
+            hash_pw,
+            rol,
+            grupo if rol == "alumno" else None,
+            semestre if rol == "alumno" else None,
+            materia if rol == "docente" else None,
+            0,          # activo = FALSE
+            token
+        )
+
+        cursor.execute(sql, values)
+        db.commit()
+
+        # Links de confirmación
+        link_confirmar = url_for("confirmar_cuenta", token=token, _external=True)
+        link_cancelar = url_for("cancelar_cuenta", token=token, _external=True)
+
+        mensaje = f"""
+Hola {usuario},
+
+Confirma tu cuenta aquí:
+{link_confirmar}
+
+Si no fuiste tú, cancela el registro:
+{link_cancelar}
+"""
+
+        enviado = enviar_correo(
+            correo,
+            "Confirma tu cuenta",
+            mensaje
+        )
+
+        if not enviado:
+            flash("Error al enviar el correo de confirmación", "error")
+            return redirect(url_for("registro_general"))
+
+
+        flash("Cuenta creada. Revisa tu correo para activarla.", "success")
+        return redirect(url_for("login_general"))
+
+    return render_template("registro/general/general.html")
  
-        cursor.execute(""" 
-            SELECT id, usuario, correo, contrasena, rol, nombre_completo 
-            FROM usuarios 
-            WHERE usuario=%s OR correo=%s 
-        """, (identificador, identificador)) 
- 
-        row = cursor.fetchone() 
- 
-        if not row: 
-            flash("Usuario o correo no existe", "error") 
-            return redirect(url_for("login_general")) 
- 
-        user_id, db_user, db_correo, db_pass, db_rol, db_nombre = row 
- 
-        if not check_password_hash(db_pass, password): 
-            flash("Contraseña incorrecta", "error") 
-            return redirect(url_for("login_general")) 
- 
-        session["user_id"] = user_id 
-        session["usuario"] = db_user 
-        session["correo"] = db_correo 
-        session["rol"] = db_rol 
-        session["nombre_completo"] = db_nombre 
- 
-        # Redirección por rol 
-        if db_rol == "alumno": 
-            return redirect(url_for("menu_alumnos")) 
-        elif db_rol == "docente": 
-            return redirect(url_for("menu_docentes")) 
-        else: 
-            # Para otros roles (directivo, administrativo), redirigir a un menú general si existe 
-            flash("Bienvenido al sistema.", "success") 
-            return redirect(url_for("menu_alumnos"))  # O puedes crear menus específicos para otros roles 
- 
-    return render_template("login/general/general.html") 
- 
- 
-@app.route("/registro/general", methods=["GET", "POST"]) 
-def registro_general(): 
-    if request.method == "POST": 
-        id_usuario = request.form.get("id") 
-        usuario = request.form.get("usuario") 
-        correo = request.form.get("correo") 
-        password = request.form.get("contrasena") 
-        confirmar = request.form.get("confirmar_contrasena") 
-        rol = request.form.get("rol") 
-        # Role-specific fields 
-        grupo = request.form.get("grupo") 
-        semestre = request.form.get("semestre") 
-        materia = request.form.get("materia") 
- 
-        if password != confirmar: 
-            flash("Las contraseñas no coinciden", "error") 
-            return redirect(url_for("registro_general")) 
- 
-        hash_pw = generate_password_hash(password) 
- 
-        conn = db 
-        cursor = conn.cursor() 
- 
-        cursor.execute("SELECT id FROM usuarios WHERE usuario=%s OR correo=%s OR id=%s", (usuario, correo, id_usuario)) 
-        if cursor.fetchone(): 
-            flash("Usuario, correo o número de control/empleado ya existe.", "error") 
-            return redirect(url_for("registro_general")) 
- 
-        # Build INSERT dynamically to include role-specific columns 
-        columns = ["id", "usuario", "correo", "contrasena", "rol"] 
-        placeholders = ["%s"] * len(columns) 
-        values = [id_usuario, usuario, correo, hash_pw, rol] 
- 
-        if rol == "alumno": 
-            # expect grupo/semestre 
-            columns.extend(["grupo", "semestre"]) 
-            placeholders.extend(["%s", "%s"]) 
-            values.extend([grupo, semestre]) 
-        elif rol == "docente": 
-            columns.append("materia") 
-            placeholders.append("%s") 
-            values.append(materia) 
- 
-        sql = f"INSERT INTO usuarios ({', '.join(columns)}) VALUES ({', '.join(placeholders)})" 
-        cursor.execute(sql, tuple(values)) 
-        conn.commit() 
- 
-        flash("Cuenta creada correctamente", "success") 
-        return redirect(url_for("login_general")) 
- 
-    return render_template("registro/general/general.html") 
- 
+@app.route("/confirmar/<token>")
+def confirmar_cuenta(token):
+    cursor = db.cursor()
+
+    cursor.execute("""
+        SELECT id FROM usuarios
+        WHERE token_confirmacion=%s AND activo=0
+    """, (token,))
+
+    if not cursor.fetchone():
+        flash("Token inválido o cuenta ya activada", "error")
+        return redirect(url_for("login_general"))
+
+    cursor.execute("""
+        UPDATE usuarios
+        SET activo=1, token_confirmacion=NULL
+        WHERE token_confirmacion=%s
+    """, (token,))
+    db.commit()
+
+    flash("Cuenta activada correctamente", "success")
+    return redirect(url_for("login_general"))
+
+
+@app.route("/cancelar/<token>")
+def cancelar_cuenta(token):
+    cursor = db.cursor()
+
+    cursor.execute("""
+        DELETE FROM usuarios
+        WHERE token_confirmacion=%s AND activo=0
+    """, (token,))
+    db.commit()
+
+    flash("Registro cancelado", "info")
+    return redirect(url_for("registro_general"))
+
+def enviar_correo(destinatario, asunto, cuerpo):
+    msg = MIMEMultipart()
+    msg["From"] = EMAIL_SISTEMA
+    msg["To"] = destinatario
+    msg["Subject"] = asunto
+
+    msg.attach(MIMEText(cuerpo, "plain"))
+
+    try:
+        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server.ehlo()
+        server.starttls()
+        server.login(EMAIL_SISTEMA, EMAIL_PASSWORD)
+        server.send_message(msg)
+        server.quit()
+        print("📧 Correo enviado a:", destinatario)
+        return True
+    except Exception as e:
+        print("❌ ERROR SMTP:", e)
+        return False
+
+# PARTE DE MATERIAS:
+
+@app.route('/materias', methods=['GET', 'POST'])
+def materias():
+    if request.method == 'POST':
+        try:
+            nombre = request.form['nombre']
+            profesor = request.form['profesor']
+            cursor = db.cursor()
+            sql = "INSERT INTO materias (nombre, profesor) VALUES (%s, %s)"
+            cursor.execute(sql, (nombre, profesor))
+            db.commit()
+            return redirect('/')
+        except Exception as e:
+            return f"Error al guardar: {e}"
+        
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("SELECT id, nombre, profesor FROM materias")
+    materias = cursor.fetchall()
+    return render_template('actividades/materias/materias.html', materias=materias)
+
+@app.route('/editar/<int:id>', methods=['GET','POST'])
+def editar(id):
+    cursor  = db.cursor(dictionary=True)
+    if request.method == 'POST':
+            nombre = request.form['nombre']
+            profesor = request.form['profesor']
+            sql = "UPDATE materias SET nombre=%s, profesor=%s WHERE id=%s"
+            cursor.execute(sql, (nombre, profesor, id))
+            db.commit()
+            cursor.close()
+            return redirect('/materias')
+    else: 
+        cursor.execute("SELECT id, nombre, profesor FROM materias WHERE id=%s", (id,))
+        materias = cursor.fetchone()
+        cursor.close()
+        return render_template('/actividades/materias/editar.html', materia=materias)
+    
+@app.route('/eliminar/<int:id>', methods=['GET', 'POST'])
+def eliminar(id):
+    cursor = db.cursor()
+    try:
+        sql = "DELETE FROM materias WHERE id=%s"
+        cursor.execute(sql, (id,))
+        db.commit()
+        cursor.close()
+        return redirect('/')
+    except Exception as e:
+        return f"Error al eliminar: {e}"
+    
+@app.route('/impresion', methods=['GET', 'POST'])
+def impresion():
+        return render_template('/impresiones/plantilla.html')
+
+
 # ----------------------------------------------------- 
 # --- PUNTO DE ENTRADA DE LA APLICACIÓN --------------- 
 # ----------------------------------------------------- 

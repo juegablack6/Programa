@@ -1,48 +1,60 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <title>Chat</title>
     <link rel="stylesheet" href="/static/chat_general/chat_general.css">
-    <link rel="stylesheet" href="/static/boostrap/css/bootstrap.min.css">
     <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
 </head>
+
 <body>
     {% extends "base.html" %}
 
-        {% block title %}Menú Principal{% endblock %}
+    {% block title %}Menú Principal{% endblock %}
 
-        {% block content %}
-    <div id="mensajes" class="container">
-    <h2 class="texto-chat">Chat general</h2>
-    <div id="mensajes">
-    {% for msg in mensajes %}
-        <p><strong>{{ msg.usuario }} ({{ msg.tipo_usuario }}):</strong> {{ msg.mensaje }}</p>
-    {% endfor %}
-    </div>
+    {% block content %}
+    <div class="container">
+        <h2 class="texto-chat">Chat general</h2>
+        <div id="lista-mensajes">
+            {% for msg in mensajes %}
+            <p><strong>{{ msg.usuario }} ({{ msg.tipo_usuario }}):</strong> {{ msg.mensaje }}</p>
+            {% endfor %}
+            <input id="mensaje" placeholder="Escribe algo..." class="mensaje"><br>
+            <button type="button" onclick="enviar()" class="boton-zona">Enviar</button>
+            <button type="button" onclick="window.location.href='/volver/menus'" class="boton-logout">Volver</button>
+        </div>
 
-    <input id="mensaje" placeholder="Escribe algo...">
-    
-    <button type="button" onclick="enviar()" class="boton-zona">Enviar</button>
-    <button type="button" onclick="window.location.href='/volver/menus'" class="boton-logout">Volver</button>
-    </div>
-    <script>
-        var socket = io();
-        var mensajes = document.getElementById("mensajes");
-        var input = document.getElementById("mensaje");
+        <script>
+            const socket = io();
 
-        socket.on("nuevo_mensaje", function(data) {
-            let p = document.createElement("p");
-            p.textContent = data.usuario + ": " + data.texto;
-            mensajes.appendChild(p);
-        });
+            const USUARIO = "{{ usuario }}";
+            const TIPO = "{{ tipo }}";
 
-        function enviar() {
-            socket.emit("mensaje", { texto: input.value });
-            input.value = "";
-        }
-    </script>
-    <img src="/static/Cecytem_(Imagen).jpeg" class="fondo-menu">
-    {% endblock %}
+            function enviar() {
+                const input = document.getElementById("mensaje");
+                const texto = input.value.trim();
+
+                if (!texto) return;
+
+                socket.emit("mensaje", {
+                    texto: texto,
+                    usuario: USUARIO,
+                    tipo: TIPO
+                });
+
+                input.value = "";
+            }
+
+            socket.on("nuevo_mensaje", function (data) {
+                const p = document.createElement("p");
+                p.innerHTML = `<strong>${data.usuario} (${data.tipo}):</strong> ${data.texto}`;
+                document.getElementById("lista-mensajes").appendChild(p);
+            });
+        </script>
+
+        <img src="/static/Cecytem_(Imagen).jpeg" class="fondo-menu">
+        {% endblock %}
 </body>
+
 </html>

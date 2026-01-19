@@ -1,38 +1,98 @@
 <!DOCTYPE html>
 <html lang="es">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Menú de alumnos</title>
-        <link rel="stylesheet" href="/static/boostrap/css/bootstrap.min.css">
-        <link rel="stylesheet" href="/static/menu/menu.css">
-    </head>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menú de alumnos</title>
+    <link rel="stylesheet" href="/static/boostrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/menu/menu.css">
+</head>
+
 <body>
-        {% extends "base.html" %}
+    {% extends "base.html" %}
 
-        {% block title %}Menú Principal{% endblock %}
+    {% block title %}Menú Principal{% endblock %}
 
-        {% block content %}
-        <div class="container">
-            {% with messages = get_flashed_messages() %}
-                {% if messages %}
-                    <ul class="flashes">
-                        {% for message in messages %}
-                            <li>{{ message }}</li>
-                        {% endfor %}
-                    </ul>
-                {% endif %}
-            {% endwith %}
-            
-            <h1>Hola {{ alumno }} Bienvenido al Menú de Alumnos</h1>
-            <button type="button" onclick="window.location.href='{{ url_for("logout_general") }}'" class="boton-logout">Cerrar sesión</button> <br><br>
-            <button type="button" onclick="window.location.href='/actividades/alumnos'" class="boton-zona">📄 Actividades</button>  
-            <button type="button" onclick="window.location.href='/calificaciones/alumnos'" class="boton-zona">🔎 Calificaciones</button>
-            <button type="button" onclick="window.location.href='{{ url_for('ayuda', from_='menu_alumnos') }}'" class="boton-zona">❓ Zona de ayuda</button>
-            <button type="button" onclick="window.location.href='/chat/general'" class="boton-zona">📩 Chat general</button>
+    {% block content %}
+    <div class="container">
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <ul class="flashes">
+            {% for message in messages %}
+            <li>{{ message }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+        {% endwith %}
 
-            <img src="/static/Cecytem_(Imagen).jpeg" class="fondo-menu">
+        <h1>Hola {{ alumno }} Bienvenido al Menú de Alumnos</h1>
+        <div class="sub-container">
+            <div class="card">
+                <h3>📚 Actividades totales</h3>
+                <p>{{ total_actividades }}</p>
+            </div>
+
+            <div class="card">
+                <h3>✅ Actividades entregadas</h3>
+                <p>{{ entregadas }}</p>
+            </div>
+
+            <div class="card">
+                <h3>📚 Actividades vencidas</h3>
+                <p>{{ vencidas }}</p>
+            </div>
+
+            <div class="card">
+                <h3>📚 Actividades próximas a vencer</h3>
+                <p>{{ proximas }}</p>
+            </div>
+
+            <div class="card">
+                <h3>📊 Progreso de actividades</h3>
+                <canvas id="graficaAlumno"></canvas>
+                <h4 class="aviso">En proceso de creación</h4>
+            </div>
+
+            <script>
+                const DATA_GRAFICA = {
+                    entregadas: {{ entregadas }},
+                vencidas: { { vencidas } },
+                proximas: { { proximas } }
+    };
+            </script>
+
+            <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+            <script src="/static/js/grafica_alumnos.js"></script>
+
+
+        </div>
+
+        <button type="button" onclick="window.location.href='{{ url_for('logout_general') }}'"
+            class="boton-logout">Cerrar
+            sesión</button> <br><br>
+        <button type="button" onclick="window.location.href='/actividades/alumnos'" class="boton-zona">📄
+            Actividades</button>
+        <button type="button" onclick="window.location.href='/calificaciones/alumnos'" class="boton-zona">🔎
+            Calificaciones</button><br>
+        <button type="button" onclick="window.location.href='{{ url_for('ayuda', from_='menu_alumnos') }}'"
+            class="boton-zona">❓ Zona de ayuda</button>
+        <button type="button" onclick="window.location.href='/chat/general'" class="boton-zona">📩 Chat general</button>
+
+        <img src="/static/Cecytem_(Imagen).jpeg" class="fondo-menu">
     </div>
+
+    <script>
+        const DATA_GRAFICA = {
+            entregadas: {{ entregadas }},
+        vencidas: { { vencidas } },
+        proximas: { { proximas } }
+        };
+    </script>
+
+    <script src="/static/js/grafica_alumnos.js"></script>
+
     {% endblock %}
 </body>
+
 </html>
