@@ -1,60 +1,65 @@
-<!DOCTYPE html>
-<html lang="es">
+{% extends "base.html" %}
 
-<head>
-    <meta charset="UTF-8">
-    <title>Chat</title>
-    <link rel="stylesheet" href="/static/chat_general/chat_general.css">
-    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
-</head>
+{% block title %}Chat{% endblock %}
 
-<body>
-    {% extends "base.html" %}
+{% block content %}
+<link rel="stylesheet" href="/static/chat_general/chat_general.css">
+<script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+<div class="container">
+    <h2 class="texto-chat">Chat</h2>
+    <div id="lista-mensajes" class="chat-messages">
+        {% for msg in mensajes %}
+        <p class="texto-mensaje"><strong>{{ msg.usuario }} ({{ msg.tipo_usuario }}):</strong> {{ msg.mensaje }}</p>
+        {% endfor %}
+    </div>
+    <input id="mensaje" placeholder="Escribe algo..." class="mensaje"><br>
+    <button type="button" onclick="enviar()" class="boton-zona">Enviar</button>
+    <button type="button" onclick="window.location.href='/volver/menus'" class="boton-logout">Volver</button>
 
-    {% block title %}Menú Principal{% endblock %}
+    <script>
+        const socket = io();
 
-    {% block content %}
-    <div class="container">
-        <h2 class="texto-chat">Chat general</h2>
-        <div id="lista-mensajes">
-            {% for msg in mensajes %}
-            <p><strong>{{ msg.usuario }} ({{ msg.tipo_usuario }}):</strong> {{ msg.mensaje }}</p>
-            {% endfor %}
-            <input id="mensaje" placeholder="Escribe algo..." class="mensaje"><br>
-            <button type="button" onclick="enviar()" class="boton-zona">Enviar</button>
-            <button type="button" onclick="window.location.href='/volver/menus'" class="boton-logout">Volver</button>
-        </div>
+        const USUARIO = "{{ usuario }}";
+        const TIPO = "{{ tipo }}".toLowerCase();
 
-        <script>
-            const socket = io();
+        console.log("DEBUG Cliente: USUARIO=" + USUARIO + ", TIPO=" + TIPO);
 
-            const USUARIO = "{{ usuario }}";
-            const TIPO = "{{ tipo }}";
+        function enviar() {
+            const input = document.getElementById("mensaje");
+            const texto = input.value.trim();
 
-            function enviar() {
-                const input = document.getElementById("mensaje");
-                const texto = input.value.trim();
+            if (!texto) return;
 
-                if (!texto) return;
+            console.log("Enviando mensaje con tipo:", TIPO);
 
-                socket.emit("mensaje", {
-                    texto: texto,
-                    usuario: USUARIO,
-                    tipo: TIPO
-                });
-
-                input.value = "";
-            }
-
-            socket.on("nuevo_mensaje", function (data) {
-                const p = document.createElement("p");
-                p.innerHTML = `<strong>${data.usuario} (${data.tipo}):</strong> ${data.texto}`;
-                document.getElementById("lista-mensajes").appendChild(p);
+            socket.emit("mensaje", {
+                texto: texto,
+                usuario: USUARIO,
+                tipo: TIPO
             });
-        </script>
 
-        <img src="/static/Cecytem_(Imagen).jpeg" class="fondo-menu">
-        {% endblock %}
-</body>
+            input.value = "";
+        }
 
-</html>
+        function scrollAlFinal() {
+            const chatContainer = document.getElementById("lista-mensajes");
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        socket.on("nuevo_mensaje", function (data) {
+            const p = document.createElement("p");
+            p.className = "texto-mensaje";
+            p.innerHTML = `<strong>${data.usuario} (${data.tipo}):</strong> ${data.texto}`;
+            document.getElementById("lista-mensajes").appendChild(p);
+
+            // Scroll automático al final
+            scrollAlFinal();
+        });
+
+        // Scroll inicial al cargar la página
+        window.addEventListener('load', scrollAlFinal);
+    </script>
+    <img src="/static/Cecytem_(Imagen).jpeg" class="fondo-menu">
+</div>
+
+{% endblock %}

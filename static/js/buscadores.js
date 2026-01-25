@@ -103,6 +103,23 @@ document.addEventListener("DOMContentLoaded", () => {
 
         try {
             const resp = await fetch(`/docentes/alumnos/buscar?q=${encodeURIComponent(q)}`);
+
+            if (resp.status === 401 || resp.status === 403) {
+                const data = await resp.json();
+                alert("⚠️ " + data.error + " - Por favor, recarga la página e inicia sesión nuevamente.");
+                resultadoVoz.textContent = "⚠️ Sesión expirada. Recarga la página.";
+                return;
+            }
+
+            if (!resp.ok) {
+                throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+            }
+
+            const contentType = resp.headers.get("content-type");
+            if (!contentType || !contentType.includes("application/json")) {
+                throw new Error("Respuesta no es JSON. Puede estar fuera de sesión.");
+            }
+
             const data = await resp.json();
 
             if (data.error) {
@@ -117,6 +134,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 renderTabla(alumnos);
             }
         } catch (err) {
+            console.error("Error en búsqueda:", err);
+            console.error("Esto puede ser porque:", err.message);
             resultadoVoz.textContent = "⚠️ Sin conexión: búsqueda local.";
             const resultados = buscarLocal(q);
             if (!resultados.length) {
@@ -165,6 +184,18 @@ document.addEventListener("DOMContentLoaded", () => {
             // Buscar en servidor con texto reconocido 
             try {
                 const resp = await fetch(`/docentes/alumnos/buscar?q=${encodeURIComponent(texto)}`);
+
+                if (resp.status === 401 || resp.status === 403) {
+                    resultadoVoz.textContent = "⚠️ Sesión expirada. Usa búsqueda local.";
+                    const resultados = buscarLocal(texto);
+                    renderTabla(resultados.length ? resultados : []);
+                    return;
+                }
+
+                if (!resp.ok) {
+                    throw new Error(`HTTP ${resp.status}`);
+                }
+
                 const data = await resp.json();
                 const alumnos = Array.isArray(data) ? data : [];
 

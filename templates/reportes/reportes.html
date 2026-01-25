@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block title %}Sistema de reportes{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="/static/reportes/reportes.css">
+<form method="POST">
+    <div class="container">
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <ul class="flashes">
+            {% for message in messages %}
+            <li>{{ message }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+        {% endwith %}
+        <h1>Sistema de reportes</h1>
+
+        <label>Buscar alumno</label>
+        <input type="text" id="buscarAlumno" placeholder="Escribe el nombre..." onkeyup="filtrarAlumnos()">
+
+
+        <label for="numero_control">Número de control</label>
+        <select id="numero_control" name="numero_control" required onchange="autocompletarAlumno()">
+            <option value="" disabled selected>Selecciona un alumno</option>
+            {% for alumno in alumnos %}
+            <option value="{{ alumno.numero_control }}" data-nombre="{{ alumno.alumno }}"
+                data-grupo="{{ alumno.grupo }}" data-turno="{{ alumno.turno }}" data-semestre="{{ alumno.semestre }}" {%
+                if reportes_por_alumno.get(alumno.numero_control, 0)>= 3 %}
+                disabled
+                {% endif %}
+                >
+                {{ alumno.alumno }}
+                {% if reportes_por_alumno.get(alumno.numero_control, 0) == 2 %}
+                ⚠ (2 reportes)
+                {% elif reportes_por_alumno.get(alumno.numero_control, 0) >= 3 %}
+                🚫 (3 reportes)
+                {% endif %}
+            </option>
+
+
+            {% endfor %}
+        </select>
+
+
+
+        <label>Nombre</label>
+        <input type="text" id="nombre" name="nombre" readonly>
+
+
+        <label>Grupo</label>
+        <input type="text" id="grupo" name="grupo" readonly>
+
+        <label>Turno</label>
+        <input type="text" id="turno" name="turno" readonly>
+
+        <label>Semestre</label>
+        <input type="text" id="semestre" name="semestre" readonly>
+
+        <label>Fecha y hora</label>
+        <input type="datetime-local" name="fecha_hora" required>
+        <label>Materia</label>
+        <input type="text" name="materia" required>
+
+
+        <label>Docente</label>
+        <input type="text" name="docente" required>
+
+        <label>Razón del reporte</label>
+        <input type="text" name="razon" required>
+
+        <label>Descripción</label>
+        <textarea name="descripcion" rows="4" required></textarea>
+
+        <button type="submit" class="boton-zona">Ingresar reporte</button> <button type="button"
+            onclick="window.location.href='/menu/docentes'" class="boton-logout">Volver</button>
+</form>
+</div><br><br>
+
+<div class="container-tabla">
+    {% if reportes %}
+    <h2>Reportes ingresados</h2>
+    <table border="1" class="tabla-alumnos">
+        <tr>
+            <th>Alumno</th>
+            <th>Fecha</th>
+            <th>Grupo</th>
+            <th>Materia</th>
+            <th>Docente</th>
+            <th>Razón</th>
+            <th>Descripción</th>
+            <th>Acciones</th>
+        </tr>
+
+        {% for reporte in reportes %}
+        <tr>
+            <td>{{ reporte.alumno }}</td>
+            <td>{{ reporte.fecha_hora }}</td>
+            <td>{{ reporte.grupo }}</td>
+            <td>{{ reporte.materia }}</td>
+            <td>{{ reporte.docente }}</td>
+            <td>{{ reporte.razon }}</td>
+            <td>{{ reporte.descripcion }}</td>
+            <td>
+                <button type="button" onclick="window.location.href='{{ url_for('editar_reporte', id=reporte.id) }}'"
+                    class="boton-zona">
+                    Editar
+                </button>
+
+                <form action="{{ url_for('eliminar_reporte', id=reporte.id) }}" method="post" style="display:inline;">
+                    <button type="submit" onclick="return confirm('¿Eliminar este reporte de {{ reporte.alumno }}?');"
+                        class="boton-eliminar">
+                        Eliminar
+                    </button>
+                </form>
+            </td>
+
+
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+    <h2>No hay reportes ingresados por el momento</h2>
+</div>
+{% endif %}
+
+<img src=" {{ url_for('static', filename='Cecytem_(Imagen).jpeg' ) }}" class="fondo-menu">
+
+<script>
+    function filtrarAlumnos() {
+        const filtro = document.getElementById("buscarAlumno").value.toLowerCase();
+        const select = document.getElementById("numero_control");
+        const opciones = select.options;
+
+        for (let i = 0; i < opciones.length; i++) {
+            if (i === 0) continue; // no tocar "Selecciona un alumno"
+
+            const texto = opciones[i].text.toLowerCase();
+            opciones[i].hidden = !texto.includes(filtro);
+        }
+    }
+</script>
+
+
+
+<script>
+    function autocompletarAlumno() {
+        const select = document.getElementById("numero_control");
+        const option = select.options[select.selectedIndex];
+
+        console.log("Index:", select.selectedIndex);
+        console.log("Option:", option);
+        console.log("Dataset:", option.dataset);
+
+        document.getElementById("nombre").value = option.dataset.nombre || "";
+        document.getElementById("grupo").value = option.dataset.grupo || "";
+        document.getElementById("turno").value = option.dataset.turno || "";
+        document.getElementById("semestre").value = option.dataset.semestre || "";
+    }
+</script>
+
+{% endblock %}

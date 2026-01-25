@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<link rel="stylesheet" href="/static/reportes/reportes.css">
+<div class="container">
+    {% with messages = get_flashed_messages() %}
+    {% if messages %}
+    <ul class="flashes">
+        {% for message in messages %}
+        <li>{{ message }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+    {% endwith %}
+    <h1>Editar reporte</h1>
+    <form method="POST">
+        <label>Fecha y hora</label><br>
+        <input type="datetime-local" name="fecha_hora" value="{{ reporte.fecha_hora }}" required><br><br>
+
+        <label>Materia</label><br>
+        <input type="text" name="materia" value="{{ reporte.materia }}" required><br><br>
+
+        <label>Docente</label><br>
+        <input type="text" name="docente" value="{{ reporte.docente }}" required><br><br>
+
+        <label>Razón</label><br>
+        <input type="text" name="razon" value="{{ reporte.razon }}" required><br><br>
+
+        <label>Descripción</label><br>
+        <textarea name="descripcion">{{ reporte.descripcion }}</textarea><br><br>
+
+        <button type="submit" class="boton-zona">Guardar cambios</button>
+        <button type="button" class="boton-logout" onclick="window.location.href='/reportes/buscar'">
+            Cancelar
+        </button>
+
+    </form>
+</div>
+<img src="/static/Cecytem_(Imagen).jpeg" class="fondo-menu">
+{% endblock %}

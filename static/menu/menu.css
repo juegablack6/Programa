@@ -125,10 +125,49 @@ h1 {
     box-shadow: 1px 7px 10px #00ff2a;
 }
 
+@media (max-width: 790px) {
+    .card {
+        width: 80%;
+    }
+
+    .boton-imprimir {
+        display: inline-block;
+        padding: 10px 20px;
+        width: 90%;
+        background: linear-gradient(#ffffff, #444444);
+        border: 0.2em solid #000000;
+        color: #000000;
+        text-decoration: none;
+        border-radius: 5px;
+        margin-top: 20px;
+        transition: background-color 0.3s;
+        animation: slideIn 0.8s ease forwards;
+        opacity: 0;
+        transform: translateY(90px);
+        font-size: 70%;
+    }
+}
+
 .aviso {
     color: red;
     font-size: 2em;
     margin-top: -3em;
-    c border: 3px solid #d9ff00;
+    border: 3px solid #d9ff00;
     background: #8ba300;
+}
+
+.boton-imprimir {
+    display: inline-block;
+    padding: 10px 20px;
+    background: linear-gradient(#ffffff, #444444);
+    border: 0.2em solid #000000;
+    color: #000000;
+    text-decoration: none;
+    border-radius: 5px;
+    margin-top: 20px;
+    transition: background-color 0.3s;
+    animation: slideIn 0.8s ease forwards;
+    opacity: 0;
+    transform: translateY(90px);
+    font-size: 70%;
 }

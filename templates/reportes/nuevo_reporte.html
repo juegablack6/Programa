@@ -1,0 +1,250 @@
+{% extends "base.html" %}
+
+{% block title %}Sistema de reportes{% endblock %}
+
+{% block content %}
+<img src="/static/Cecytem_(Imagen).jpeg" class="fondo-menu">
+<link rel="stylesheet" href="/static/reportes/reportes.css">
+
+
+{% if alumno.total_reportes >= 3 %}
+<div class="bloqueado">
+    {% with messages = get_flashed_messages() %}
+    {% if messages %}
+    <ul class="flashes">
+        {% for message in messages %}
+        <li>{{ message }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+    {% endwith %}
+    <h2 class="texto-bloqueado">🚫 Alumno suspendido</h2>
+    <h2 class="texto-bloqueado">{{ alumno.alumno }} ya tiene 3 reportes.</h2><br>
+    <div class="tabla-bloqueo">
+        {% if reportes %}
+        <table border="1" class="tabla-alumnos">
+            <tr>
+                <th>Fecha y hora</th>
+                <th>Materia</th>
+                <th>Docente</th>
+                <th>Razón</th>
+                <th>Descripción</th>
+                <th>Acciones</th>
+            </tr>
+            {% for reporte in reportes %}
+            <tr>
+                <td>{{ reporte.fecha_hora }}</td>
+                <td>{{ reporte.materia }}</td>
+                <td>{{ reporte.docente }}</td>
+                <td>{{ reporte.razon }}</td>
+                <td>{{ reporte.descripcion }}</td>
+                <td>
+                    <button type="button" onclick="window.location.href='/reportes/editar/{{ reporte.id }}'"
+                        class="boton-zona-bloqueado">✏️ Editar</button>
+                    <button type="button" onclick="window.location.href='/reportes/imprimir/reporte/{{ reporte.id }}'"
+                        class="boton-zona-bloqueado">🖨️ Imprimir</button>
+                    <form method="POST" action="/reportes/eliminar/{{ reporte.id }}" style="display:inline;">
+                        <button type="submit" class="boton-logout-bloqueado"
+                            onclick="return confirm('¿Seguro que deseas eliminar este reporte?')">
+                            🗑️ Eliminar
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% else %}
+        <h1>No hay reportes para este alumno por el momento.</h1>
+        {% endif %}
+    </div>
+    <button type="button" class="boton-zona"
+        onclick="window.location.href='/reportes/imprimir/{{ alumno.NumeroControl }}'">📄 Imprimir Todos</button>
+    <button type="button" class="boton-logout" onclick="window.location.href='/reportes/buscar'">Volver</button>
+</div>
+
+{% elif alumno.total_reportes == 2 %}
+<div class="alerta">
+    <form method="POST" action="/reportes">
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <ul class="flashes">
+            {% for message in messages %}
+            <li>{{ message }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+        {% endwith %}
+        <h2>⚠ Advertencia</h2>
+        <h2>{{ alumno.alumno }} esta en peligro de extinción (Ya tiene 2 reportes).</h2><br>
+
+        <h1>Nuevo reporte</h1>
+
+        <label>Alumno</label>
+        <input type="text" value="{{ alumno.alumno }}" readonly><br>
+
+        <label for="grupo">Grupo</label>
+        <input type="text" id="grupo" name="grupo" value="{{ alumno.Grupo }}" readonly><br>
+
+        <label for="turno">Turno</label>
+        <input type="text" name="turno" value="{{ alumno.Turno }}" readonly><br>
+
+        <label for="semestre">Semestre</label>
+        <input type="text" value="{{ alumno.Semestre }}" readonly><br>
+
+        <label for="numero_control">Número de Control</label>
+        <input type="text" id="numero_control" name="numero_control" value="{{ alumno.NumeroControl }}" readonly><br>
+
+        <label for="fecha_hora">Fecha y Hora</label>
+        <input type="datetime-local" id="fecha_hora" name="fecha_hora" required><br>
+
+        <label for="materia">Materia</label>
+        <input type="text" id="materia" name="materia" required><br>
+
+        <label for="docente">Docente</label>
+        <input type="text" id="docente" name="docente" required><br>
+
+        <label for="razon">Razón</label>
+        <input type="text" id="razon" name="razon" required><br>
+
+        <label for="descripcion">Descripción</label>
+        <textarea id="descripcion" name="descripcion"></textarea><br><br>
+
+        <button type="submit" class="boton-zona">Registrar reporte</button>
+        <button type="button" onclick="window.location.href='/reportes/buscar'" class="boton-logout">Volver</button>
+    </form><br>
+
+    <div class="tabla-alerta">
+        {% if reportes %}
+        <table border="1" class="tabla-alumnos">
+            <tr>
+                <th>Fecha y hora</th>
+                <th>Materia</th>
+                <th>Docente</th>
+                <th>Razón</th>
+                <th>Descripción</th>
+                <th>Acciones</th>
+            </tr>
+            {% for reporte in reportes %}
+            <tr>
+                <td>{{ reporte.fecha_hora }}</td>
+                <td>{{ reporte.materia }}</td>
+                <td>{{ reporte.docente }}</td>
+                <td>{{ reporte.razon }}</td>
+                <td>{{ reporte.descripcion }}</td>
+                <td>
+                    <button type="button" onclick="window.location.href='/reportes/editar/{{ reporte.id }}'"
+                        class="boton-zona">✏️ Editar</button>
+                    <button type="button" onclick="window.location.href='/reportes/imprimir/reporte/{{ reporte.id }}'"
+                        class="boton-zona">🖨️ Imprimir</button>
+                    <form method="POST" action="/reportes/eliminar/{{ reporte.id }}" style="display:inline;">
+                        <button type="submit" class="boton-logout"
+                            onclick="return confirm('¿Seguro que deseas eliminar este reporte?')">
+                            🗑️ Eliminar
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% else %}
+        <h1>No hay reportes para este alumno por el momento.</h1>
+        {% endif %}
+    </div>
+    <button type="button" class="boton-zona"
+        onclick="window.location.href='/reportes/imprimir/{{ alumno.NumeroControl }}'">📄 Imprimir Todos</button>
+    <button type="button" class="boton-logout" onclick="window.location.href='/reportes/buscar'">Volver</button>
+</div>
+
+{% else %}
+<form method="POST" action="/reportes">
+    <div class="container">
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <ul class="flashes">
+            {% for message in messages %}
+            <li>{{ message }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+        {% endwith %}
+        <h1>Nuevo reporte</h1>
+        <h2>Reporte para {{ alumno.alumno }}</h2>
+
+        <label>Alumno</label>
+        <input type="text" value="{{ alumno.alumno }}" readonly><br>
+
+        <label for="grupo">Grupo</label>
+        <input type="text" id="grupo" name="grupo" value="{{ alumno.Grupo }}" readonly><br>
+
+        <label for="turno">Turno</label>
+        <input type="text" name="turno" value="{{ alumno.Turno }}" readonly><br>
+
+        <label for="semestre">Semestre</label>
+        <input type="text" value="{{ alumno.Semestre }}" readonly><br>
+
+        <label for="numero_control">Número de Control</label>
+        <input type="text" id="numero_control" name="numero_control" value="{{ alumno.NumeroControl }}" readonly><br>
+
+        <label for="fecha_hora">Fecha y Hora</label>
+        <input type="datetime-local" id="fecha_hora" name="fecha_hora" required><br>
+
+        <label for="materia">Materia</label>
+        <input type="text" id="materia" name="materia" required><br>
+
+        <label for="docente">Docente</label>
+        <input type="text" id="docente" name="docente" required><br>
+
+        <label for="razon">Razón</label>
+        <input type="text" id="razon" name="razon" required><br>
+
+        <label for="descripcion">Descripción</label>
+        <textarea id="descripcion" name="descripcion"></textarea><br>
+
+        <button type="submit" class="boton-zona">Registrar reporte</button>
+        <button type="button" onclick="window.location.href='/reportes/buscar'" class="boton-logout">Volver</button>
+</form><br>
+<div class="tabla">
+    {% if reportes %}
+    <table border="1" class="tabla-alumnos">
+        <tr>
+            <th>Fecha y hora</th>
+            <th>Materia</th>
+            <th>Docente</th>
+            <th>Razón</th>
+            <th>Descripción</th>
+            <th>Acciones</th>
+        </tr>
+        {% for reporte in reportes %}
+        <tr>
+            <td>{{ reporte.fecha_hora }}</td>
+            <td>{{ reporte.materia }}</td>
+            <td>{{ reporte.docente }}</td>
+            <td>{{ reporte.razon }}</td>
+            <td>{{ reporte.descripcion }}</td>
+            <td>
+                <button type="button" onclick="window.location.href='/reportes/editar/{{ reporte.id }}'"
+                    class="boton-zona">✏️ Editar</button>
+                <button type="button" onclick="window.location.href='/reportes/imprimir/reporte/{{ reporte.id }}'"
+                    class="boton-zona">🖨️ Imprimir</button>
+                <form method="POST" action="/reportes/eliminar/{{ reporte.id }}" style="display:inline;">
+                    <button type="submit" class="boton-logout"
+                        onclick="return confirm('¿Seguro que deseas eliminar este reporte?')">
+                        🗑️ Eliminar
+                    </button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+    <h1>No hay reportes para este alumno por el momento.</h1>
+    {% endif %}
+</div>
+<button type="button" class="boton-zona"
+    onclick="window.location.href='/reportes/imprimir/{{ alumno.NumeroControl }}'">📄 Imprimir Todos</button>
+<button type="button" class="boton-logout" onclick="window.location.href='/reportes/buscar'">Volver</button>
+</div>
+</div>
+{% endif %}
+
+{% endblock %}

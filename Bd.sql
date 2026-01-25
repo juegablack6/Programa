@@ -454,15 +454,35 @@ ALTER TABLE usuarios
   ADD COLUMN semestre VARCHAR(10) NULL,
   ADD COLUMN materia VARCHAR(200) NULL;
 SELECT * FROM usuarios;
+UPDATE usuarios SET activo = 1 WHERE id = 4; 
 ALTER TABLE usuarios
 ADD intentos_fallidos INT DEFAULT 0,
 ADD bloqueado_hasta DATETIME NULL;
 ALTER TABLE usuarios
 ADD activo BOOLEAN DEFAULT 0,
 ADD token_confirmacion VARCHAR(255);
+ALTER TABLE usuarios
+ADD COLUMN telefono VARCHAR(100) NULL,
+ADD COLUMN departamento VARCHAR(100) NULL,
+ADD COLUMN cargo VARCHAR(100) NULL,
+ADD COLUMN fecha_ingreso DATE NULL;
 
 SELECT * FROM usuarios;
 DELETE FROM usuarios where id = 2147483647;
 UPDATE usuarios SET activo = 1 WHERE id= 1;
 
 USE proyecto;
+CREATE TABLE reportes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    numero_control VARCHAR(100) NOT NULL,
+    nombre VARCHAR(100) NOT NULL,
+    fecha_hora DATETIME NOT NULL,
+    grupo VARCHAR(10) NOT NULL,
+    materia VARCHAR(50) NOT NULL,
+    docente VARCHAR(50) NOT NULL,
+    razon VARCHAR(100) NOT NULL,
+    descripcion TEXT
+);
+SELECT * FROM reportes;
+DROP TABLE reportes;
+SELECT * FROM chat_general;

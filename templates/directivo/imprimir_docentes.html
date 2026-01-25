@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Impresión de Actividad - {{ actividad.nombre }}</title>
+    <title>Directorio de Docentes</title>
     <style>
         * {
             margin: 0;
@@ -44,50 +44,6 @@
             font-size: 14px;
         }
 
-        .numero-actividad {
-            background-color: #e8f4f8;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-            text-align: center;
-            color: #003da5;
-            font-weight: bold;
-        }
-
-        .seccion {
-            margin-bottom: 30px;
-        }
-
-        .seccion h2 {
-            color: #003da5;
-            font-size: 18px;
-            margin-bottom: 15px;
-            border-left: 4px solid #003da5;
-            padding-left: 10px;
-        }
-
-        .seccion p {
-            color: #333;
-            line-height: 1.6;
-            margin-bottom: 10px;
-        }
-
-        .descripcion-contenedor {
-            background-color: #f9f9f9;
-            padding: 15px;
-            border-left: 4px solid #4CAF50;
-            border-radius: 3px;
-            margin-bottom: 15px;
-        }
-
-        .material-docente {
-            background-color: #f0f7ff;
-            padding: 12px;
-            border-left: 4px solid #2196F3;
-            border-radius: 3px;
-            color: #1976D2;
-        }
-
         table {
             width: 100%;
             border-collapse: collapse;
@@ -114,15 +70,6 @@
 
         table tr:last-child td {
             border-bottom: none;
-        }
-
-        .sin-entregas {
-            background-color: #fff3cd;
-            padding: 15px;
-            border-left: 4px solid #ff9800;
-            border-radius: 3px;
-            color: #856404;
-            text-align: center;
         }
 
         .botones {
@@ -174,6 +121,13 @@
             margin-top: 40px;
         }
 
+        .total-docentes {
+            text-align: center;
+            color: #666;
+            margin: 15px 0;
+            font-weight: bold;
+        }
+
         .no-imprimir {
             display: flex;
             gap: 10px;
@@ -207,66 +161,40 @@
 <body>
     <div class="container">
         <div class="encabezado">
-            <h1>📚 LISTADO DE ENTREGAS</h1>
+            <h1>👨‍🏫 DIRECTORIO DE DOCENTES</h1>
             <p>Instituto Tecnológico de Celaya - CECYTEM</p>
         </div>
 
         <div class="botones no-imprimir">
             <button onclick="window.print()">🖨️ Imprimir</button>
-            <button class="volver" onclick="window.location.href='/actividades/docentes'">← Volver</button>
+            <button class="volver" onclick="window.location.href='/menu/directivo'">← Volver</button>
         </div>
 
-        <div class="numero-actividad">
-            Actividad #{{ actividad.numero_actividad }}
+        {% if docentes %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Usuario</th>
+                    <th>Nombre Completo</th>
+                    <th>Correo</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for docente in docentes %}
+                <tr>
+                    <td>{{ docente.usuario }}</td>
+                    <td>{{ docente.nombre_completo }}</td>
+                    <td>{{ docente.correo }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div class="total-docentes">
+            Total de docentes: <strong>{{ docentes|length }}</strong>
         </div>
-
-        <div class="seccion">
-            <h2>Información de la Actividad</h2>
-            <p><strong>Nombre:</strong> {{ actividad.nombre }}</p>
-            <p><strong>Descripción:</strong></p>
-            <div class="descripcion-contenedor">
-                {{ actividad.descripcion }}
-            </div>
-
-            {% if actividad.archivo_docente %}
-            <div class="material-docente">
-                <strong>📎 Material del docente:</strong> {{ actividad.archivo_docente }}
-            </div>
-            {% endif %}
-        </div>
-
-        <div class="seccion">
-            <h2>📋 Alumnos que Entregaron</h2>
-
-            {% if entregados %}
-            <table>
-                <thead>
-                    <tr>
-                        <th>No. de Control</th>
-                        <th>Nombre Completo</th>
-                        <th>Fecha de Entrega</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for alumno in entregados %}
-                    <tr>
-                        <td>{{ alumno.NumeroControl }}</td>
-                        <td>{{ alumno.Nombre }} {{ alumno.Paterno }} {{ alumno.Materno }}</td>
-                        <td>{{ alumno.fecha_entrega.strftime('%d/%m/%Y %H:%M') }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            <p style="text-align: center; color: #666; margin-top: 15px;">
-                <strong>Total de entregas: {{ entregados|length }}</strong>
-            </p>
-            {% else %}
-            <div class="sin-entregas">
-                <h3>⚠️ Sin Entregas Registradas</h3>
-                <p>No hay alumnos que hayan entregado esta actividad aún.</p>
-            </div>
-            {% endif %}
-        </div>
+        {% else %}
+        <p style="text-align: center; color: #999; font-size: 18px;">No hay docentes registrados.</p>
+        {% endif %}
 
         <div class="pie-pagina">
             <p>Documento generado automáticamente - {{ fecha_generacion }}</p>

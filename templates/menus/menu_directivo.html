@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Menú Principal{% endblock %}
+
+{% block content %}
+<img src="/static/Cecytem_(Imagen).jpeg" class="fondo-menu">
+<link rel="stylesheet" href="/static/menu/menu.css">
+
+<div class="container">
+    {% with messages = get_flashed_messages() %}
+    {% if messages %}
+    <ul class="flashes">
+        {% for message in messages %}
+        <li>{{ message }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+    {% endwith %}
+    <h1>Hola {{ directivo }} Bienvenido al Menú de Directivos</h1>
+
+    <div class="sub-container">
+        <div class="card">
+            <h3>👨‍🏫 Docentes en el sistema</h3>
+            <p>{{ total_docentes }}</p>
+            <button type="button" onclick="location.href='/directivo/imprimir/docentes'" class="boton-imprimir">Imprimir
+                Docentes</button>
+        </div><br><br>
+
+        <div class="card">
+            <h3>📚 Alumnos en el sistema</h3>
+            <p>{{ total_alumnos }}</p>
+            <button type="button" onclick="location.href='/directivo/grupos'" class="boton-imprimir">Imprimir Alumnos
+                por
+                Grupo</button>
+        </div>
+
+        <div class="opciones">
+            <button type="button" onclick="location.href='/logout/directivo'" class="boton-logout">Cerrar
+                Sesión</button><br>
+            <button type="button" onclick="location.href='/reportes/buscar'" class="boton-zona">📄 Reportes</button>
+            <button type="button" onclick="location.href='/chat/general'" class=" boton-zona">📩 Chat General</button>
+            <button type="submit" onclick="window.location.href='/docentes/alumnos/gestion'" class="boton-zona">📓
+                Alumnos</button><br>
+            <button type="button" onclick="window.location.href='{{ url_for('ayuda', from_='menu_directivo') }}'"
+                class="boton-zona">❓ Zona de ayuda</button>
+
+        </div>
+    </div>
+</div>
+</div>
+{% endblock %}

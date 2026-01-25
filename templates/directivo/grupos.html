@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Alumnos por Grupo{% endblock %}
+
+{% block content %}
+<img src="/static/Cecytem_(Imagen).jpeg" class="fondo-menu">
+<link rel="stylesheet" href="/static/directivos/grupos.css">
+
+<div class="container">
+    <h1>👥 Alumnos por Grupo</h1>
+
+    {% if grupos %}
+    <div class="grupos-grid">
+        {% for grupo in grupos %}
+        <div class="grupo-card">
+            <h2>📚 {{ grupo.Grupo }}</h2>
+            <div class="stats">
+                <div class="stat">
+                    <span class="numero">{{ grupo.total_alumnos }}</span>
+                    <span class="label">Alumnos</span>
+                </div>
+            </div>
+            <a href="/directivo/imprimir/alumnos/grupo/{{ grupo.Grupo }}" class="boton-zona">
+                🖨️ Imprimir Lista
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p style="text-align: center; color: #999; font-size: 18px;">No hay grupos disponibles.</p>
+    {% endif %}
+
+    <div style="margin-top: 30px; text-align: center;">
+        <button onclick="location.href='/menu/directivo'" class="boton-logout">← Volver al Dashboard</button>
+    </div>
+</div>
+
+
+{% endblock %}

@@ -30,7 +30,7 @@ except ImportError:
  
 app = Flask(__name__) 
 app.secret_key = "Clavesuperhipermegasupremaparaguardarcosasydemascosasenlasessionyensecreto" 
-socketio = SocketIO(app) 
+socketio = SocketIO(app, manage_session=False) 
 EMAIL_SISTEMA = "correoenviadordecorreosdeconfi@gmail.com"
 EMAIL_PASSWORD = "jvee fkuc nufd zdao"
 
@@ -48,8 +48,7 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS 
  
 # Configuración de SESIÓN 
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=5) 
-app.permanent_session_lifetime = timedelta(minutes=5) 
+app.permanent_session_lifetime = timedelta(minutes=3) 
 
 # Conexión a la Base de Datos 
 def get_db_connection():
@@ -61,30 +60,57 @@ def get_db_connection():
     )
 db = get_db_connection()
  
+@app.before_request
+def verificar_sesion_global():
+    rutas_publicas = {
+        "login_general",
+        "registro_general",
+        "confirmar_cuenta",
+        "cancelar_cuenta",
+        "inicio",
+        "ayuda",
+        "volver_ayuda",
+        "static"
+    }
+
+    if request.endpoint is None:
+        return
+
+    if request.endpoint in rutas_publicas:
+        return
+
+    # ⏳ Sesión expirada o inexistente
+    if "user_id" not in session:
+        session.clear()
+        flash("Sesión expirada por inactividad. Inicia sesión nuevamente.", "warning")
+        return redirect(url_for("login_general"))
+
+from flask import request
+from datetime import datetime, timedelta
+
+@app.before_request
+def controlar_inactividad():
+    if "user_id" not in session:
+        return
+
+    ahora = datetime.now()
+    ultima = session.get("ultima_actividad")
+
+    if ultima:
+        ultima = datetime.fromisoformat(ultima)
+        if ahora - ultima > timedelta(minutes=3):
+            session.clear()
+            flash("Sesión cerrada por inactividad.", "warning")
+            return redirect(url_for("login_general"))
+
+    session["ultima_actividad"] = ahora.isoformat()
+
+
 # ----------------------------------------------------- 
 # --- DECORADORES SIMPLIFICADOS ----------------------- 
 # ----------------------------------------------------- 
  
-# Decorador para rutas que solo alumnos logueados pueden ver 
-def login_required_alumno(f): 
-    @wraps(f) 
-    def decorated_function(*args, **kwargs): 
-        if "alumno_nc" not in session: 
-            flash("Debes iniciar sesión como alumno primero.") 
-            return redirect(url_for("login_alumnos")) 
-        return f(*args, **kwargs) 
-    return decorated_function 
- 
-# Decorador para rutas que solo docentes logueados pueden ver 
-def login_required_docente(f): 
-    @wraps(f) 
-    def decorated_function(*args, **kwargs): 
-        if "docente" not in session: 
-            flash("Debes iniciar sesión como docente primero.") 
-            return redirect(url_for("login_docentes")) 
-        return f(*args, **kwargs) 
-    return decorated_function 
- 
+
 # Decorador para rutas públicas (accesibles sin sesión) 
 def public_access(f): 
     @wraps(f) 
@@ -108,12 +134,18 @@ def login_required(*roles):
         @wraps(f) 
         def wrap(*args, **kwargs): 
             if "user_id" not in session: 
+                # Si es una petición AJAX, retorna JSON en lugar de redirigir
+                if request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.is_json:
+                    return jsonify({"error": "No autenticado"}), 401
                 flash("Inicia sesión primero", "error") 
                 return redirect(url_for("login_general")) 
  
             if roles: 
                 user_role = session.get("rol") 
                 if user_role not in roles: 
+                    # Si es una petición AJAX, retorna JSON en lugar de redirigir
+                    if request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.is_json:
+                        return jsonify({"error": "Permiso denegado"}), 403
                     # Provide clearer redirects depending on the current logged-in role 
                     if user_role == "alumno": 
                         flash("Ya estas registrado como alumno, cierra sesión e inicia sesión como docente", "error") 
@@ -121,6 +153,9 @@ def login_required(*roles):
                     elif user_role == "docente": 
                         flash("Ya estas registrado como docente, cierra sesión e inicia sesión como alumno", "error") 
                         return redirect(url_for("menu_docentes")) 
+                    elif user_role == "directivo": 
+                        flash("Ya estas registrado como directivo, cierra sesión e inicia sesión con otro rol", "error") 
+                        return redirect(url_for("menu_directivo")) 
                     else: 
                         flash("No tienes permisos", "error") 
                         return redirect(url_for("login_general")) 
@@ -189,14 +224,15 @@ def menu_alumnos():
     proximas = cursor.fetchone()[0]
 
     cursor.close()
-
+    no_entregadas = total_actividades - entregadas
     progreso = int((entregadas / total_actividades) * 100) if total_actividades else 0
 
     return render_template(
-        "menus/menu_alumnos.html",
+        "menus/menu_alumno.html",
         alumno=alumno,
         total_actividades=total_actividades,
         entregadas=entregadas,
+        no_entregadas=no_entregadas,
         vencidas=vencidas,
         proximas=proximas,
         progreso=progreso
@@ -390,12 +426,140 @@ def volver_ayuda():
         "login_general": "login_general", 
         "registro_general": "registro_general", 
         "menu_alumnos": "menu_alumnos", 
-        "menu_docentes": "menu_docentes", 
+        "menu_docentes": "menu_docentes",
+        "menu_directivo": "menu_directivo",
     } 
     return redirect(url_for(ruta_origen.get(origen, "login_general"))) 
  
 # ----------------------------------------------------- 
-# --- RUTAS DE RECUPERACIÓN DE CONTRASEÑA ----------- 
+# --- RUTAS DE DIRECTIVOS ---------------------------- 
+# ----------------------------------------------------- 
+
+# Menú de directivos
+@app.route("/menu/directivo", methods=["GET"])
+@login_required("directivo")
+def menu_directivo():
+    directivo = session.get("nombre_completo") or "Directivo"
+    cursor = db.cursor(dictionary=True)
+
+    # Contar docentes en usuarios con rol = 'docente'
+    cursor.execute("SELECT COUNT(*) AS total FROM usuarios WHERE rol = 'docente'")
+    total_docentes = cursor.fetchone()["total"]
+
+    # Contar alumnos en usuarios con rol = 'alumno'
+    cursor.execute("SELECT COUNT(*) AS total FROM usuarios WHERE rol = 'alumno'")
+    total_alumnos = cursor.fetchone()["total"]
+
+    cursor.close()
+
+    return render_template(
+        "menus/menu_directivo.html",
+        directivo=directivo,
+        total_alumnos=total_alumnos,
+        total_docentes=total_docentes
+    )
+
+# Ver todos los reportes (directivo)
+@app.route("/directivo/reportes", methods=["GET"])
+@login_required("directivo")
+def directivo_reportes():
+    return redirect(url_for("reportes"))
+
+# Imprimir alumnos por grupo (directivo)
+@app.route("/directivo/imprimir/alumnos/grupo/<grupo>", methods=["GET"])
+@login_required("directivo")
+def directivo_imprimir_alumnos_grupo(grupo):
+    from datetime import datetime
+    
+    cursor = db.cursor(dictionary=True)
+    
+    # Obtener alumnos del grupo
+    cursor.execute("""
+        SELECT 
+            NumeroControl,
+            Nombre,
+            Paterno,
+            Materno,
+            Grupo,
+            Turno,
+            Semestre
+        FROM alumnos
+        WHERE Grupo = %s
+        ORDER BY Paterno, Materno, Nombre
+    """, (grupo,))
+    
+    alumnos = cursor.fetchall()
+    fecha_generacion = datetime.now().strftime('%d/%m/%Y %H:%M')
+    
+    cursor.close()
+    
+    return render_template(
+        "directivo/imprimir_alumnos_grupo.html",
+        grupo=grupo,
+        alumnos=alumnos,
+        fecha_generacion=fecha_generacion
+    )
+
+# Imprimir todos los docentes (directivo)
+@app.route("/directivo/imprimir/docentes", methods=["GET"])
+@login_required("directivo")
+def directivo_imprimir_docentes():
+    from datetime import datetime
+    
+    cursor = db.cursor(dictionary=True)
+    
+    # Obtener todos los docentes de la tabla usuarios
+    cursor.execute("""
+        SELECT usuario, nombre_completo, correo
+        FROM usuarios
+        WHERE rol = 'docente'
+        ORDER BY nombre_completo
+    """)
+    
+    docentes = cursor.fetchall()
+    fecha_generacion = datetime.now().strftime('%d/%m/%Y %H:%M')
+    
+    cursor.close()
+    
+    return render_template(
+        "directivo/imprimir_docentes.html",
+        docentes=docentes,
+        fecha_generacion=fecha_generacion
+    )
+
+# Listar grupos disponibles (directivo)
+@app.route("/directivo/grupos", methods=["GET"])
+@login_required("directivo")
+def directivo_grupos():
+    cursor = db.cursor(dictionary=True)
+    
+    # Obtener grupos únicos de la tabla alumnos
+    cursor.execute("""
+        SELECT 
+            Grupo,
+            COUNT(*) as total_alumnos
+        FROM alumnos
+        GROUP BY Grupo
+        ORDER BY Grupo
+    """)
+    
+    grupos = cursor.fetchall()
+    cursor.close()
+    
+    return render_template(
+        "directivo/grupos.html",
+        grupos=grupos
+    )
+
+# Logout de directivo
+@app.route("/logout/directivo")
+@login_required("directivo")
+def logout_directivo():
+    session.clear()
+    flash("Has cerrado sesión exitosamente.")
+    return redirect(url_for("login_general"))
+
+# ----------------------------------------------------- 
 # ----------------------------------------------------- 
  
 # Recuperación de Contraseña para Alumnos 
@@ -706,6 +870,8 @@ def editar_actividad(numero_actividad):
 @app.route("/actividades/imprimir/<int:numero_actividad>")
 @login_required()
 def imprimir_actividad(numero_actividad):
+    from datetime import datetime
+    
     cursor = db.cursor(dictionary=True)
 
     # 1️⃣ Obtener actividad
@@ -736,13 +902,17 @@ def imprimir_actividad(numero_actividad):
 """, (numero_actividad,))
 
     entregados = cursor.fetchall()
+    
+    # Generar fecha actual
+    fecha_generacion = datetime.now().strftime('%d/%m/%Y %H:%M')
 
     cursor.close()
 
     return render_template(
         "actividades/docentes/imprimir_actividad.html",
         actividad=actividad,
-        entregados=entregados
+        entregados=entregados,
+        fecha_generacion=fecha_generacion
     )
 
  
@@ -788,7 +958,7 @@ def get_alumnos_from_db():
  
 # Listar y Crear Alumnos (todo en una ruta) 
 @app.route("/docentes/alumnos/gestion", methods=["GET", "POST"]) 
-@login_required("docente") 
+@login_required("directivo") 
 def gestionar_alumnos(): 
     cursor = None 
     try: 
@@ -825,10 +995,10 @@ def gestionar_alumnos():
          
         # Lógica para listar alumnos (GET) 
         alumnos_data = get_alumnos_from_db() 
-        return render_template("docentes/alumnos/lista_de_alumnos.html", alumnos=alumnos_data) 
+        return render_template("directivo/lista_de_alumnos.html", alumnos=alumnos_data) 
     except Exception as e: 
         flash(f"Error al procesar la solicitud: {e}", "error") 
-        return render_template("docentes/alumnos/lista_de_alumnos.html", alumnos=[]) 
+        return render_template("directivo/lista_de_alumnos.html", alumnos=[]) 
     finally: 
         if cursor: 
             cursor.close() 
@@ -844,7 +1014,7 @@ def get_alumno_by_numerocontrol(numerocontrol):
  
 # Editar alumno 
 @app.route("/alumnos/editar/<string:numerocontrol>", methods=["GET", "POST"]) 
-@login_required("docente") 
+@login_required("directivo") 
 def editar_alumno(numerocontrol): 
     cursor = None 
     try: 
@@ -867,7 +1037,7 @@ def editar_alumno(numerocontrol):
             # Validación simple 
             if not all([nombre, paterno, materno, curp, turno, grupo, semestre]): 
                 flash("Todos los campos son obligatorios.", "error") 
-                return render_template("docentes/alumnos/editar_alumno.html", alumno=alumno) 
+                return render_template("directivo/editar_alumno.html", alumno=alumno) 
  
             # Actualizar en la DB 
             sql = """ 
@@ -880,7 +1050,7 @@ def editar_alumno(numerocontrol):
             flash("Alumno actualizado exitosamente.", "success") 
             return redirect(url_for("gestionar_alumnos")) 
  
-        return render_template("docentes/alumnos/editar_alumno.html", alumno=alumno) 
+        return render_template("directivo/editar_alumno.html", alumno=alumno) 
  
     except Exception as e: 
         flash(f"Error al editar alumno: {e}", "error") 
@@ -892,7 +1062,7 @@ def editar_alumno(numerocontrol):
  
 # Eliminar alumno 
 @app.route("/docentes/alumnos/eliminar/<string:numerocontrol>", methods=["POST"]) 
-@login_required("docente") 
+@login_required("directivo") 
 def eliminar_alumno(numerocontrol): 
     cursor = None 
     try: 
@@ -916,7 +1086,7 @@ def eliminar_alumno(numerocontrol):
  
 # Búsqueda por texto mejorada 
 @app.route("/docentes/alumnos/buscar", methods=["GET"]) 
-@login_required("docente") 
+@login_required("directivo") 
 def buscar_alumnos(): 
     query = request.args.get("q", "").strip() 
     try: 
@@ -950,7 +1120,7 @@ def buscar_alumnos():
  
 # Búsqueda por voz mejorada 
 @app.route("/docentes/alumnos/buscar/voz", methods=["POST"]) 
-@login_required("docente") 
+@login_required("directivo") 
 def buscar_alumnos_voz(): 
     recognizer = sr.Recognizer() 
     try: 
@@ -991,7 +1161,7 @@ def buscar_alumnos_voz():
  
  
 @app.route("/docentes/alumnos/buscar/voz/offline", methods=["POST"]) 
-@login_required("docente") 
+@login_required("directivo") 
 def buscar_alumnos_voz_offline(): 
     try: 
         # Recibir audio 
@@ -1056,9 +1226,9 @@ def buscar_alumnos_voz_offline():
      
 # Endpoint temporal para descargar archivos de diagnóstico desde tmp/ 
 @app.route('/tmp/<path:filename>') 
-@login_required('docente') 
+@login_required('directivo') 
 def download_tmp_file(filename): 
-    """Descarga archivos de diagnóstico guardados en tmp/. Protegido para docentes.""" 
+    """Descarga archivos de diagnóstico guardados en tmp/. Protegido para directivos.""" 
     try: 
         tmp_dir = os.path.join(os.path.dirname(__file__), 'tmp') 
         safe_name = os.path.basename(filename) 
@@ -1096,33 +1266,55 @@ def logout_general():
  
 # Ruta del chat general 
 @app.route("/chat/general", methods=["GET"]) 
-@login_required() 
+@login_required("alumno", "docente", "directivo") 
 def chat_general(): 
     # Detectar tipo de usuario 
     usuario = session.get("nombre_completo", "Invitado") 
-    rol = session.get("rol", "ninguno") 
- 
+    rol = session.get("rol", "ninguno")
+    if rol:
+        rol = rol.lower()  # Asegurar que esté en minúsculas
+    
+    print(f"DEBUG chat_general(): usuario={usuario}, rol={rol}, session.keys={list(session.keys())}")
+    
     # Leer los mensajes guardados 
     cursor = db.cursor(dictionary=True) 
     cursor.execute("SELECT usuario, tipo_usuario, mensaje FROM chat_general ORDER BY id ASC") 
-    mensajes = cursor.fetchall() 
+    mensajes = cursor.fetchall()
+    cursor.close()
  
     return render_template( 
         "chat_general/chat_general.html", 
         usuario=usuario, 
         tipo=rol, 
         mensajes=mensajes 
-    ) 
- 
- 
+    )
+
+
 @socketio.on("mensaje")
 def manejar_mensaje(data):
-    usuario = session.get("usuario")
-    tipo = data.get("tipo")
+    # Obtener datos de la sesión disponibles
+    try:
+        usuario = session.get("usuario")
+        rol = session.get("rol", "ninguno").lower() if session.get("rol") else "ninguno"
+    except:
+        usuario = None
+        rol = "ninguno"
+    
+    tipo = data.get("tipo", rol)  # Usar tipo del cliente o rol de sesión como fallback
     mensaje = data.get("texto", "").strip()
+
+    # Debug
+    print(f"DEBUG: usuario={usuario}, rol_sesion={session.get('rol')}, tipo_enviado={data.get('tipo')}, tipo_final={tipo}")
 
     if not usuario or not mensaje:
         return
+
+    # Si tipo está vacío o es None, obtenerlo de la sesión
+    if not tipo or tipo == "":
+        tipo = session.get("rol", "ninguno")
+        if tipo:
+            tipo = tipo.lower()
+        print(f"DEBUG: tipo vacío, obtenido de sesión: {tipo}")
 
     cursor = db.cursor()
     cursor.execute(
@@ -1251,11 +1443,14 @@ def login_general():
 
         # 🔐 Sesión
         session.clear()
+        session.permanent = True
         session["user_id"] = user["id"]
         session["usuario"] = user["usuario"]
         session["correo"] = user["correo"]
         session["rol"] = user["rol"]
         session["nombre_completo"] = user["nombre_completo"]
+
+        session["ultima_actividad"] = datetime.now().isoformat()
 
         cursor.close()
 
@@ -1264,6 +1459,8 @@ def login_general():
             return redirect(url_for("menu_alumnos"))
         elif user["rol"] == "docente":
             return redirect(url_for("menu_docentes"))
+        elif user["rol"] == "directivo":
+            return redirect(url_for("menu_directivo"))
         else:
             return redirect(url_for("menu_alumnos"))
 
@@ -1288,6 +1485,12 @@ def registro_general():
         grupo = request.form.get("grupo")
         semestre = request.form.get("semestre")
         materia = request.form.get("materia")
+        
+        # Datos para directivos
+        numero_telefono = request.form.get("numero_telefono")
+        departamento = request.form.get("departamento")
+        cargo = request.form.get("cargo")
+        fecha_ingreso = request.form.get("fecha_ingreso")
 
         # Validación básica
         if password != confirmar:
@@ -1314,8 +1517,9 @@ def registro_general():
         INSERT INTO usuarios (
             id, usuario, correo, contrasena, rol,
             grupo, semestre, materia,
+            telefono, departamento, cargo, fecha_ingreso,
             activo, token_confirmacion
-        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         """
 
         values = (
@@ -1327,6 +1531,10 @@ def registro_general():
             grupo if rol == "alumno" else None,
             semestre if rol == "alumno" else None,
             materia if rol == "docente" else None,
+            numero_telefono if rol == "directivo" else None,
+            departamento if rol == "directivo" else None,
+            cargo if rol == "directivo" else None,
+            fecha_ingreso if rol == "directivo" else None,
             0,          # activo = FALSE
             token
         )
@@ -1475,6 +1683,369 @@ def eliminar(id):
 @app.route('/impresion', methods=['GET', 'POST'])
 def impresion():
         return render_template('/impresiones/plantilla.html')
+
+
+@app.route("/reportes", methods=["GET", "POST"])
+@login_required("directivo")
+def sistema_reportes():
+    db = get_db_connection()
+    cursor = db.cursor(dictionary=True)
+
+    # 📌 OBTENER LISTA DE ALUMNOS PARA EL SELECT
+    cursor.execute("""
+    SELECT 
+        NumeroControl AS numero_control,
+        CONCAT(Nombre, ' ', Paterno, ' ', Materno) AS alumno,
+        Grupo AS grupo,
+        Turno AS turno,
+        Semestre AS semestre
+    FROM alumnos
+    ORDER BY Nombre
+    """)
+    alumnos = cursor.fetchall()
+
+    numero_control_filtro = None
+    reportes = []
+
+    # 📌 INSERTAR REPORTE
+    if request.method == "POST":
+        numero_control = request.form.get("numero_control")
+        fecha_hora = request.form.get("fecha_hora")
+        materia = request.form.get("materia")
+        docente = request.form.get("docente")
+        razon = request.form.get("razon")
+        descripcion = request.form.get("descripcion")
+
+        # ✅ Validar campos requeridos
+        if not all([numero_control, fecha_hora, materia, docente, razon]):
+            flash("Todos los campos requeridos deben estar completos", "error")
+            return redirect(url_for("sistema_reportes"))
+
+        # 🔍 Contar reportes del alumno
+        cursor.execute("""
+            SELECT COUNT(*) AS total
+            FROM reportes
+            WHERE numero_control = %s
+        """, (numero_control,))
+
+        total_reportes = cursor.fetchone()["total"]
+
+        if total_reportes >= 3:
+            flash("Este alumno ya tiene 3 reportes.", "error")
+        else:
+            # 🔍 Obtener datos reales del alumno
+            cursor.execute("""
+                SELECT Grupo
+                FROM alumnos
+                WHERE NumeroControl = %s
+            """, (numero_control,))
+            alumno = cursor.fetchone()
+
+            if not alumno:
+                flash("Alumno no encontrado", "error")
+            else:
+                cursor.execute("""
+                    INSERT INTO reportes (
+                        numero_control,
+                        fecha_hora,
+                        grupo,
+                        materia,
+                        docente,
+                        razon,
+                        descripcion
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """, (
+                    numero_control,
+                    fecha_hora,
+                    alumno["Grupo"],
+                    materia,
+                    docente,
+                    razon,
+                    descripcion
+                ))
+
+                db.commit()
+                flash("Reporte registrado correctamente", "success")
+                cursor.close()
+                db.close()
+                return redirect(url_for("buscar_alumno_reportes", numero_control=numero_control))
+
+    # 📌 MOSTRAR REPORTES DEL ALUMNO SELECCIONADO
+    if numero_control_filtro:
+        cursor.execute("""
+        SELECT 
+            r.id AS id,
+            r.numero_control,
+            CONCAT(a.Nombre, ' ', a.Paterno, ' ', a.Materno) AS alumno,
+            r.fecha_hora,
+            r.grupo,
+            r.materia,
+            r.docente,
+            r.razon,
+            r.descripcion
+        FROM reportes r
+        JOIN alumnos a ON a.NumeroControl = r.numero_control
+        WHERE r.numero_control = %s
+        ORDER BY r.fecha_hora DESC
+        """, (numero_control_filtro,))
+        reportes = cursor.fetchall()
+
+    # 📌 CONTAR REPORTES POR ALUMNO
+    cursor.execute("""
+    SELECT numero_control, COUNT(*) AS total
+    FROM reportes
+    GROUP BY numero_control
+    """)
+    conteos = cursor.fetchall()
+    reportes_por_alumno = {
+        r["numero_control"]: r["total"] for r in conteos
+    }
+
+    cursor.close()
+    db.close()
+
+    return render_template(
+        "reportes/buscar_alumno.html",
+        alumnos=alumnos,
+        reportes=reportes,
+        reportes_por_alumno=reportes_por_alumno
+    )
+
+@app.route("/reportes/eliminar/<int:id>", methods=["POST"])
+@login_required("directivo")
+def eliminar_reporte(id):
+    db = get_db_connection()
+    cursor = db.cursor(dictionary=True)
+
+    # 🔎 Obtener el numero_control del reporte antes de eliminarlo
+    cursor.execute("SELECT numero_control FROM reportes WHERE id = %s", (id,))
+    reporte = cursor.fetchone()
+
+    if not reporte:
+        flash("Reporte no encontrado", "error")
+        cursor.close()
+        db.close()
+        return redirect(url_for("sistema_reportes"))
+
+    numero_control = reporte["numero_control"]
+
+    # 🗑️ Eliminar el reporte
+    cursor.execute("DELETE FROM reportes WHERE id = %s", (id,))
+    db.commit()
+    cursor.close()
+    db.close()
+
+    flash("Reporte eliminado correctamente", "success")
+    return redirect(url_for("buscar_alumno_reportes", numero_control=numero_control))
+
+
+@app.route("/reportes/editar/<int:id>", methods=["GET", "POST"])
+@login_required("directivo")
+def editar_reporte(id):
+    db = get_db_connection()
+    cursor = db.cursor(dictionary=True)
+
+    # GET → cargar datos
+    if request.method == "GET":
+        cursor.execute("SELECT * FROM reportes WHERE id = %s", (id,))
+        reporte = cursor.fetchone()
+        cursor.close()
+        db.close()
+
+        if not reporte:
+            flash("Reporte no encontrado", "error")
+            return redirect(url_for("sistema_reportes"))
+
+        return render_template("reportes/editar_reporte.html", reporte=reporte)
+
+    # POST → actualizar datos
+    if request.method == "POST":
+        fecha_hora = request.form.get("fecha_hora")
+        materia = request.form.get("materia")
+        docente = request.form.get("docente")
+        razon = request.form.get("razon")
+        descripcion = request.form.get("descripcion")
+
+        # ✅ Validar campos requeridos
+        if not all([fecha_hora, materia, docente, razon]):
+            flash("Todos los campos requeridos deben estar completos", "error")
+            return redirect(url_for("editar_reporte", id=id))
+
+        cursor.execute("SELECT numero_control FROM reportes WHERE id = %s", (id,))
+        reporte = cursor.fetchone()
+
+        if not reporte:
+            flash("Reporte no encontrado", "error")
+            cursor.close()
+            db.close()
+            return redirect(url_for("sistema_reportes"))
+
+        numero_control = reporte["numero_control"]
+
+        cursor.execute("""
+            UPDATE reportes
+            SET fecha_hora = %s,
+                materia = %s,
+                docente = %s,
+                razon = %s,
+                descripcion = %s
+            WHERE id = %s
+        """, (fecha_hora, materia, docente, razon, descripcion, id))
+
+        db.commit()
+        cursor.close()
+        db.close()
+
+        flash("Reporte actualizado correctamente", "success")
+        return redirect(url_for("buscar_alumno_reportes", numero_control=numero_control))
+
+@app.route("/reportes/buscar", methods=["GET", "POST"])
+@login_required("directivo")
+def buscar_alumno_reportes():
+    numero_control = request.form.get("numero_control") or request.args.get("numero_control")
+
+    if numero_control:
+        db = get_db_connection()
+        cursor = db.cursor(dictionary=True)
+        
+        # Obtener datos del alumno
+        cursor.execute("""
+            SELECT 
+                NumeroControl,
+                CONCAT(Nombre, ' ', Paterno, ' ', Materno) AS alumno,
+                Grupo,
+                Turno,
+                Semestre
+            FROM alumnos
+            WHERE NumeroControl = %s
+        """, (numero_control,))
+        
+        alumno = cursor.fetchone()
+        
+        if not alumno:
+            flash("Alumno no encontrado", "error")
+            cursor.close()
+            db.close()
+            return redirect("/reportes/buscar")
+        
+        # Obtener reportes del alumno
+        cursor.execute("""
+            SELECT * 
+            FROM reportes 
+            WHERE numero_control = %s 
+            ORDER BY fecha_hora DESC
+        """, (numero_control,))
+        reportes = cursor.fetchall()
+        
+        # Contar reportes actuales
+        total_reportes = len(reportes)
+        alumno['total_reportes'] = total_reportes
+        
+        cursor.close()
+        db.close()
+
+        return render_template(
+            "reportes/nuevo_reporte.html",
+            alumno=alumno,
+            reportes=reportes
+        )
+
+    return render_template("reportes/buscar_alumno.html")
+
+@app.route("/reportes/imprimir/<int:numero_control>")
+@login_required("directivo")
+def imprimir_reportes(numero_control):
+    db = get_db_connection()
+    cursor = db.cursor(dictionary=True)
+
+    # 📌 Obtener datos del alumno
+    cursor.execute("""
+        SELECT 
+            NumeroControl,
+            CONCAT(Nombre, ' ', Paterno, ' ', Materno) AS alumno,
+            Grupo,
+            Turno,
+            Semestre
+        FROM alumnos
+        WHERE NumeroControl = %s
+    """, (numero_control,))
+    alumno = cursor.fetchone()
+
+    if not alumno:
+        flash("Alumno no encontrado", "error")
+        cursor.close()
+        db.close()
+        return redirect(url_for("sistema_reportes"))
+
+    # 📌 Obtener todos los reportes del alumno
+    cursor.execute("""
+        SELECT 
+            id,
+            numero_control,
+            fecha_hora,
+            grupo,
+            materia,
+            docente,
+            razon,
+            descripcion
+        FROM reportes
+        WHERE numero_control = %s
+        ORDER BY fecha_hora DESC
+    """, (numero_control,))
+    reportes = cursor.fetchall()
+
+    cursor.close()
+    db.close()
+
+    return render_template(
+        "reportes/imprimir_reportes.html",
+        alumno=alumno,
+        reportes=reportes,
+        fecha_generacion=datetime.now().strftime('%d/%m/%Y %H:%M')
+    )
+
+
+@app.route("/reportes/imprimir/reporte/<int:id>")
+@login_required("directivo")
+def imprimir_reporte_individual(id):
+    db = get_db_connection()
+    cursor = db.cursor(dictionary=True)
+
+    # 📌 Obtener el reporte individual
+    cursor.execute("""
+        SELECT 
+            r.id,
+            r.numero_control,
+            CONCAT(a.Nombre, ' ', a.Paterno, ' ', a.Materno) AS alumno,
+            a.Grupo,
+            a.Turno,
+            a.Semestre,
+            r.fecha_hora,
+            r.grupo,
+            r.materia,
+            r.docente,
+            r.razon,
+            r.descripcion
+        FROM reportes r
+        JOIN alumnos a ON a.NumeroControl = r.numero_control
+        WHERE r.id = %s
+    """, (id,))
+    reporte = cursor.fetchone()
+
+    if not reporte:
+        flash("Reporte no encontrado", "error")
+        cursor.close()
+        db.close()
+        return redirect(url_for("sistema_reportes"))
+
+    cursor.close()
+    db.close()
+
+    return render_template(
+        "reportes/imprimir_reporte.html",
+        reporte=reporte,
+        fecha_generacion=datetime.now().strftime('%d/%m/%Y %H:%M')
+    )
 
 
 # ----------------------------------------------------- 

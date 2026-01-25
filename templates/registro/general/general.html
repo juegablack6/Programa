@@ -141,6 +141,31 @@
                         CON CONEXIÓN A BASES DE DATOS</option>
                 </select>
             </div>
+
+            <div id="directivos-campos" style="display:none;">
+                <label for="numero_telefono">Número de teléfono:</label>
+                <input type="tel" name="numero_telefono" id="numero_telefono"
+                    placeholder="Ingresa tu número de teléfono" required><br>
+
+                <label for="departamento">Departamento:</label>
+                <input type="text" name="departamento" id="departamento"
+                    placeholder="Ej: Administración, Recursos Humanos, etc." required><br>
+
+                <label for="cargo">Cargo:</label><br>
+                <select id="cargo" name="cargo" required>
+                    <option value="" disabled selected>Selecciona tu cargo</option>
+                    <option value="Director">Director</option>
+                    <option value="Subdirector">Subdirector</option>
+                    <option value="Coordinador">Coordinador</option>
+                    <option value="Jefe de Departamento">Jefe de Departamento</option>
+                    <option value="Administrador">Administrador</option>
+                </select><br>
+
+                <label for="fecha_ingreso">Fecha de Ingreso:</label>
+                <input type="date" name="fecha_ingreso" id="fecha_ingreso" required>
+
+            </div>
+
             <button type="submit" class="boton-registrar">Registrarse</button>
 
             <button type="button" class="boton-registrar" onclick="window.location.href='/login/general'">¿Ya tienes una
