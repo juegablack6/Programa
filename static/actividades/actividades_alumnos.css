@@ -109,13 +109,14 @@ h1 {
 }
 
 table {
+    table-layout: fixed;
+    padding-right: 20px;
     width: 107%;
     background: #ffffff;
     border-collapse: collapse;
     font-size: 0.9em;
     overflow-x: auto;
     display: block;
-    white-space: nowrap;
     border-radius: 8px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     overflow: hidden;
@@ -149,6 +150,7 @@ table th {
 
 table td {
     padding: 12px;
+    table-layout: fixed;
     text-align: left;
     border: none;
     border-bottom: 1px solid #e8e8e8;
@@ -157,6 +159,7 @@ table td {
 }
 
 table tbody tr {
+    table-layout: fixed;
     transition: all 0.2s ease;
 }
 
@@ -172,4 +175,11 @@ table tbody tr:hover {
 
 table tbody tr:last-child td {
     border-bottom: none;
+}
+
+.imagen-felicidad {
+    margin-top: 0%;
+    width: 15%;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }

@@ -48,7 +48,7 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS 
  
 # Configuración de SESIÓN 
-app.permanent_session_lifetime = timedelta(minutes=3) 
+app.permanent_session_lifetime = timedelta(minutes=10) 
 
 # Conexión a la Base de Datos 
 def get_db_connection():

@@ -21,8 +21,8 @@
 
     {% block scripts %}
     <script type="text/javascript">
-        const INACTIVITY_TIMEOUT = 180000; // 3 min
-        const WARNING_TIME = 150000; // 2:30 min
+        const INACTIVITY_TIMEOUT = 600000; // 10 min
+        const WARNING_TIME = 540000; // 9 min
 
         {% if session.get('rol') %}
         const logoutUrl = "{{ url_for('logout_inactividad') }}";
