@@ -98,7 +98,7 @@ def controlar_inactividad():
 
     if ultima:
         ultima = datetime.fromisoformat(ultima)
-        if ahora - ultima > timedelta(minutes=3):
+        if ahora - ultima > timedelta(minutes=10):
             session.clear()
             flash("Sesión cerrada por inactividad.", "warning")
             return redirect(url_for("login_general"))
@@ -445,7 +445,7 @@ def menu_directivo():
     # Contar docentes en usuarios con rol = 'docente'
     cursor.execute("SELECT COUNT(*) AS total FROM usuarios WHERE rol = 'docente'")
     total_docentes = cursor.fetchone()["total"]
-
+    
     # Contar alumnos en usuarios con rol = 'alumno'
     cursor.execute("SELECT COUNT(*) AS total FROM usuarios WHERE rol = 'alumno'")
     total_alumnos = cursor.fetchone()["total"]
@@ -464,6 +464,47 @@ def menu_directivo():
 @login_required("directivo")
 def directivo_reportes():
     return redirect(url_for("reportes"))
+
+# Gestionar cuentas de directivos pendientes (solo para directivos)
+@app.route("/directivo/cuentas/pendientes", methods=["GET", "POST"])
+@login_required("directivo")
+def gestionar_cuentas_directivos():
+    cursor = db.cursor(dictionary=True)
+    
+    if request.method == "POST":
+        id_usuario = request.form.get("id_usuario")
+        accion = request.form.get("accion")  # 'activar' o 'rechazar'
+        
+        if accion == "activar":
+            cursor.execute("""
+                UPDATE usuarios
+                SET activo=1, token_confirmacion=NULL
+                WHERE id=%s AND rol='directivo' AND activo=0
+            """, (id_usuario,))
+            db.commit()
+            flash(f"Cuenta de {id_usuario} activada correctamente", "success")
+        elif accion == "rechazar":
+            cursor.execute("""
+                DELETE FROM usuarios
+                WHERE id=%s AND rol='directivo' AND activo=0
+            """, (id_usuario,))
+            db.commit()
+            flash(f"Registro de {id_usuario} rechazado", "info")
+    
+    # Obtener cuentas de directivos pendientes de activación
+    cursor.execute("""
+        SELECT id, usuario, correo, telefono, departamento, cargo, fecha_ingreso
+        FROM usuarios
+        WHERE rol='directivo' AND activo=0
+        ORDER BY id
+    """)
+    cuentas_pendientes = cursor.fetchall()
+    cursor.close()
+    
+    return render_template(
+        "directivo/cuentas_pendientes.html",
+        cuentas_pendientes=cuentas_pendientes
+    )
 
 # Imprimir alumnos por grupo (directivo)
 @app.route("/directivo/imprimir/alumnos/grupo/<grupo>", methods=["GET"])
@@ -1387,7 +1428,7 @@ def login_general():
 
         # 🚨 Cuenta no activada
         if not user["activo"]:
-            flash("Debes confirmar tu cuenta por correo", "warning")
+            flash("Debes activar tu cuenta primero.", "warning")
             cursor.close()
             return redirect(url_for("login_general"))
 
@@ -1542,6 +1583,13 @@ def registro_general():
         cursor.execute(sql, values)
         db.commit()
 
+        # 🔐 Si es directivo, no enviar correo automático - requiere verificación manual
+        if rol == "directivo":
+            cursor.close()
+            flash("Cuenta creada. Por favor, pídele a un administrador o algún directivo que active tu cuenta. Gracias por registrarte en nuestra página web.", "info")
+            return redirect(url_for("login_general"))
+
+        # 📧 Para alumnos y docentes: enviar correo de confirmación
         # Links de confirmación
         link_confirmar = url_for("confirmar_cuenta", token=token, _external=True)
         link_cancelar = url_for("cancelar_cuenta", token=token, _external=True)
@@ -1566,7 +1614,7 @@ Si no fuiste tú, cancela el registro:
             flash("Error al enviar el correo de confirmación", "error")
             return redirect(url_for("registro_general"))
 
-
+        cursor.close()
         flash("Cuenta creada. Revisa tu correo para activarla.", "success")
         return redirect(url_for("login_general"))
 
@@ -1706,6 +1754,9 @@ def sistema_reportes():
 
     numero_control_filtro = None
     reportes = []
+    
+    # 💾 Obtener número de control de la URL o de la sesión
+    numero_control_seleccionado = request.args.get("numero_control") or session.get('ultimo_alumno_reportes')
 
     # 📌 INSERTAR REPORTE
     if request.method == "POST":
@@ -1808,7 +1859,8 @@ def sistema_reportes():
         "reportes/buscar_alumno.html",
         alumnos=alumnos,
         reportes=reportes,
-        reportes_por_alumno=reportes_por_alumno
+        reportes_por_alumno=reportes_por_alumno,
+        numero_control_seleccionado=numero_control_seleccionado
     )
 
 @app.route("/reportes/eliminar/<int:id>", methods=["POST"])
@@ -1856,7 +1908,7 @@ def editar_reporte(id):
             flash("Reporte no encontrado", "error")
             return redirect(url_for("sistema_reportes"))
 
-        return render_template("reportes/editar_reporte.html", reporte=reporte)
+        return render_template("reportes/editar_reporte.html", reporte=reporte, id=id)
 
     # POST → actualizar datos
     if request.method == "POST":
@@ -1897,7 +1949,13 @@ def editar_reporte(id):
         db.close()
 
         flash("Reporte actualizado correctamente", "success")
-        return redirect(url_for("buscar_alumno_reportes", numero_control=numero_control))
+        
+        # 💾 Recuperar número de control de la sesión y redirigir a buscar
+        numero_control = session.get('ultimo_alumno_reportes')
+        if numero_control:
+            return redirect(url_for('buscar_alumno_reportes', numero_control=numero_control))
+        else:
+            return redirect(url_for('buscar_alumno_reportes'))
 
 @app.route("/reportes/buscar", methods=["GET", "POST"])
 @login_required("directivo")
@@ -1905,6 +1963,9 @@ def buscar_alumno_reportes():
     numero_control = request.form.get("numero_control") or request.args.get("numero_control")
 
     if numero_control:
+        # 💾 Guardar en sesión para usar después
+        session['ultimo_alumno_reportes'] = numero_control
+        
         db = get_db_connection()
         cursor = db.cursor(dictionary=True)
         
@@ -1950,7 +2011,9 @@ def buscar_alumno_reportes():
             reportes=reportes
         )
 
-    return render_template("reportes/buscar_alumno.html")
+    # Obtener último alumno de sesión para pre-llenar
+    numero_control_sesion = session.get('ultimo_alumno_reportes')
+    return render_template("reportes/buscar_alumno.html", numero_control_seleccionado=numero_control_sesion)
 
 @app.route("/reportes/imprimir/<int:numero_control>")
 @login_required("directivo")

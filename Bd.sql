@@ -454,7 +454,7 @@ ALTER TABLE usuarios
   ADD COLUMN semestre VARCHAR(10) NULL,
   ADD COLUMN materia VARCHAR(200) NULL;
 SELECT * FROM usuarios;
-UPDATE usuarios SET activo = 1 WHERE id = 4; 
+UPDATE usuarios SET usuario = "juegablack6" WHERE id = 4; 
 ALTER TABLE usuarios
 ADD intentos_fallidos INT DEFAULT 0,
 ADD bloqueado_hasta DATETIME NULL;

@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Cuentas Pendientes de Directivos{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="/static/directivo/cuentas_pendientes.css">
+<div class="container">
+    {% with messages = get_flashed_messages() %}
+    {% if messages %}
+    <ul class="flashes">
+        {% for message in messages %}
+        <li>{{ message }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+    {% endwith %}
+
+    <h1>Cuentas Pendientes de Directivos</h1>
+
+    {% if cuentas_pendientes %}
+    <table class="tabla-cuentas">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Usuario</th>
+                <th>Correo</th>
+                <th>Teléfono</th>
+                <th>Departamento</th>
+                <th>Cargo</th>
+                <th>Fecha Ingreso</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for cuenta in cuentas_pendientes %}
+            <tr>
+                <td>{{ cuenta.id }}</td>
+                <td>{{ cuenta.usuario }}</td>
+                <td>{{ cuenta.correo }}</td>
+                <td>{{ cuenta.telefono or '-' }}</td>
+                <td>{{ cuenta.departamento or '-' }}</td>
+                <td>{{ cuenta.cargo or '-' }}</td>
+                <td>{{ cuenta.fecha_ingreso or '-' }}</td>
+                <td>
+                    <div class="acciones">
+                        <form method="POST" style="display: inline;">
+                            <input type="hidden" name="id_usuario" value="{{ cuenta.id }}">
+                            <input type="hidden" name="accion" value="activar">
+                            <button type="submit" class="btn-activar">✓ Activar</button>
+                        </form>
+                        <form method="POST" style="display: inline;"
+                            onsubmit="return confirm('¿Estás seguro de que deseas rechazar este registro?');">
+                            <input type="hidden" name="id_usuario" value="{{ cuenta.id }}">
+                            <input type="hidden" name="accion" value="rechazar">
+                            <button type="submit" class="btn-rechazar">✗ Rechazar</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="sin-cuentas">
+        <p>No hay cuentas de directivos pendientes de activación.</p>
+    </div>
+    {% endif %}
+
+    <button type="button" onclick="window.location.href='/menu/directivo'" class="boton-volver">Volver</button>
+</div>
+
+<img src="/static/Cecytem_(Imagen).jpeg" class="fondo-menu"
+    style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1;">
+{% endblock %}

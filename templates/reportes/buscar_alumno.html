@@ -16,7 +16,7 @@
     {% endwith %}
     <form method="POST">
         <label>Número de control</label>
-        <input type="text" name="numero_control" required><br>
+        <input type="text" name="numero_control" value="{{ numero_control_seleccionado or '' }}" required><br>
         <button type="submit" class="boton-zona">Buscar</button> <button type="button" class="boton-logout"
             onclick="window.location.href='/menu/directivo'">Volver</button>
     </form>
