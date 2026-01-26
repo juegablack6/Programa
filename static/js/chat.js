@@ -1,7 +1,7 @@
 const socket = io();
 
-const USUARIO = "{{ usuario }}";
-const TIPO = "{{ tipo }}".toLowerCase();
+const USUARIO = USUARIO_GLOBAL || "Anónimo";
+const TIPO = TIPO_GLOBAL || "ninguno";
 
 console.log("DEBUG Cliente: USUARIO=" + USUARIO + ", TIPO=" + TIPO);
 
