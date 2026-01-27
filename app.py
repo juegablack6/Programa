@@ -439,7 +439,7 @@ def volver_ayuda():
 @app.route("/menu/directivo", methods=["GET"])
 @login_required("directivo")
 def menu_directivo():
-    directivo = session.get("nombre_completo") or "Directivo"
+    directivo = session.get("usuario") or "Directivo"
     cursor = db.cursor(dictionary=True)
 
     # Contar docentes en usuarios con rol = 'docente'
@@ -2110,6 +2110,124 @@ def imprimir_reporte_individual(id):
         fecha_generacion=datetime.now().strftime('%d/%m/%Y %H:%M')
     )
 
+@app.route('/directivos/orientadores', methods=['GET', 'POST'])
+@login_required('directivo')
+def orientadores_en_sistema():
+    if request.method == 'POST':
+        try:
+            nombre = request.form['nombre']
+            numero_empleado = request.form['numero_empleado']
+            grupos_atiende = request.form['grupos_atiende']
+            cursor = db.cursor()
+            sql = "INSERT INTO orientadores (nombre, numero_empleado, grupos_atiende) VALUES (%s, %s, %s)"
+            cursor.execute(sql, (nombre, numero_empleado, grupos_atiende))
+            db.commit()
+            cursor.close()
+            flash("Orientador agregado correctamente", "success")
+            return redirect('/directivos/orientadores')
+        except Exception as e:
+            flash(f"Error al guardar {e}", "error")
+            return redirect('/directivos/orientadores')
+        
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("SELECT nombre, numero_empleado, grupos_atiende FROM orientadores")
+    orientadores = cursor.fetchall()
+    return render_template('orientadores/orientadores.html', orientadores=orientadores)
+
+@app.route('/directivos/orientadores/eliminar/<int:numero_empleado>', methods=['GET', 'POST'])
+@login_required('directivo')
+def eliminar_orientador(numero_empleado):
+    cursor = db.cursor()
+    try:
+        sql = "DELETE FROM orientadores WHERE numero_empleado=%s"
+        cursor.execute(sql, (numero_empleado,))
+        db.commit()
+        cursor.close()
+        flash("Orientador eliminado correctamente", "success")
+        return redirect('/directivos/orientadores')
+    except Exception as e:
+        flash(f"Error al eliminar: {e}", "error")
+        return redirect('/directivos/orientadores')
+    
+@app.route('/directivos/orientadores/editar/<int:numero_empleado>', methods=['GET', 'POST'])
+@login_required('directivo')
+def editar_orientador(numero_empleado):
+    cursor  = db.cursor(dictionary=True)
+    if request.method == 'POST':
+            nombre = request.form['nombre']
+            grupos_atiende = request.form['grupos_atiende']
+            sql = "UPDATE orientadores SET nombre=%s, grupos_atiende=%s WHERE numero_empleado=%s"
+            cursor.execute(sql, (nombre, grupos_atiende, numero_empleado))
+            db.commit()
+            cursor.close()
+            flash("Orientador actualizado correctamente", "success")
+            return redirect('/directivos/orientadores')
+    else: 
+        cursor.execute("SELECT nombre, numero_empleado, grupos_atiende FROM orientadores WHERE numero_empleado=%s", (numero_empleado,))
+        orientador = cursor.fetchone()
+        cursor.close()
+        return render_template('/orientadores/editar_orientadores.html', orientador=orientador)
+
+@app.route('/directivo/docentes', methods=['GET', 'POST'])
+@login_required('directivo')
+def docentes_en_sistema():
+    if request.method == 'POST':
+        try:
+            numero_empleado = request.form['numero_empleado']
+            nombre = request.form['nombre']
+            fecha_ingreso = request.form['fecha_ingreso']
+            perfil_profesional = request.form['perfil_profesional']
+            asignaturas = request.form['asignaturas']
+            cursor = db.cursor()
+            sql = "INSERT INTO docentes (nombre, numero_empleado, fecha_ingreso, perfil_profesional, asignaturas) VALUES  (%s, %s, %s, %s, %s)"
+            cursor.execute(sql, (nombre, numero_empleado, fecha_ingreso, perfil_profesional, asignaturas))
+            db.commit()
+            cursor.close()
+            flash("Docente agregado correctamente", "success")
+            return redirect('/directivo/docentes')
+        except Exception as e:
+            flash(f"Error al guardar {e}", "error")
+            return redirect('/directivos/docentes')
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("SELECT nombre, numero_empleado, fecha_ingreso, perfil_profesional, asignaturas FROM docentes")
+    docentes = cursor.fetchall()
+    return render_template('directivo/docentes/docentes.html', docentes=docentes)
+
+@app.route('/directivo/docentes/eliminar/<int:numero_empleado>', methods=['GET', 'POST'])
+@login_required('directivo')
+def eliminar_docente(numero_empleado):
+    cursor = db.cursor()
+    try:
+        sql = "DELETE FROM docentes WHERE numero_empleado=%s"
+        cursor.execute(sql, (numero_empleado,))
+        db.commit()
+        cursor.close()
+        flash("Docente eliminado correctamente", "success")
+        return redirect('/directivo/docentes')
+    except Exception as e:
+        flash(f"Error al eliminar: {e}", "error")
+        return redirect('/directivo/docentes')
+    
+@app.route('/directivo/docentes/editar/<int:numero_empleado>', methods=['GET', 'POST'])
+@login_required('directivo')
+def editar_docente(numero_empleado):
+    cursor  = db.cursor(dictionary=True)
+    if request.method == 'POST':
+            nombre = request.form['nombre']
+            fecha_ingreso = request.form['fecha_ingreso']
+            perfil_profesional = request.form['perfil_profesional']
+            asignaturas = request.form['asignaturas']
+            sql = "UPDATE docentes SET nombre=%s, fecha_ingreso=%s, perfil_profesional=%s, asignaturas=%s WHERE numero_empleado=%s"
+            cursor.execute(sql, (nombre, fecha_ingreso, perfil_profesional, asignaturas, numero_empleado))
+            db.commit()
+            cursor.close()
+            flash("Docente actualizado correctamente", "success")
+            return redirect('/directivo/docentes')
+    else: 
+        cursor.execute("SELECT nombre, numero_empleado, fecha_ingreso, perfil_profesional, asignaturas FROM docentes WHERE numero_empleado=%s", (numero_empleado,))
+        docente = cursor.fetchone()
+        cursor.close()
+        return render_template('/directivo/docentes/editar_docentes.html', docente=docente)
 
 # ----------------------------------------------------- 
 # --- PUNTO DE ENTRADA DE LA APLICACIÓN --------------- 

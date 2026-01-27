@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Editar Orientador{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="/static/orientadores/orientadores.css">
+<div class="container">
+    {% with messages = get_flashed_messages() %}
+    {% if messages %}
+    <ul class="flashes">
+        {% for message in messages %}
+        <li>{{ message }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+    {% endwith %}
+    <h1>Editar al docente {{ docente.nombre }}</h1>
+    <form method="POST" action="{{ url_for('editar_docente', numero_empleado=docente.numero_empleado) }}">
+
+        <label for="nombre">Nombre</label><br>
+        <input type="text" id="nombre" name="nombre" value="{{ docente.nombre }}" required><br><br>
+
+        <label for="fecha_ingreso">Fecha de Ingreso</label><br>
+        <input type="date" id="fecha_ingreso" name="fecha_ingreso" value="{{ docente.fecha_ingreso }}" required><br><br>
+
+        <label for="perfil_profesional">Perfil Profesional</label><br>
+        <input type="text" id="perfil_profesional" name="perfil_profesional" value="{{ docente.perfil_profesional }}"
+            required><br><br>
+
+        <label for="perfil_profesional">Asignatura:</label><br>
+        <input type="text" class="asignatura" id="asignaturas" name="asignaturas" value="{{ docente.asignaturas }}"
+            required><br><br>
+
+        <button type="submit" class="boton-zona">Guardar Cambios</button> <button type="button"
+            onclick="location.href='/directivos/orientadores'" class="boton-logout">Cancelar</button>
+    </form>
+</div>
+<img src="/static/Cecytem_(Imagen).jpeg" class="fondo-menu">
+{% endblock %}

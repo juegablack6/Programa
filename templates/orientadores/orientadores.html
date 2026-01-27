@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Orientadores en el Sistema{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="/static/orientadores/orientadores.css">
+<div class="container">
+    {% with messages = get_flashed_messages() %}
+    {% if messages %}
+    <ul class="flashes">
+        {% for message in messages %}
+        <li>{{ message }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+    {% endwith %}
+
+    <h1>Ingresa un nuevo orientador</h1>
+    <form method="POST" action="{{ url_for('orientadores_en_sistema') }}">
+
+        <label for="numero_empleado">Número de Empleado</label><br>
+        <input type="text" id="numero_empleado" name="numero_empleado"
+            placeholder="Ingresa el numero de empleado del orientador."><br><br>
+
+        <label for="nombre">Nombre</label><br>
+        <input type="text" id="nombre" name="nombre" placeholder="Ingresa el nombre del orientador." required><br><br>
+
+
+        <label for="grupos_atiende">Grupos que Atiende (separados por comas)</label><br>
+        <input type="text" id="grupos_atiende" name="grupos_atiende" placeholder="Ejemplo: 101,304,502,402"
+            required><br><br>
+
+        <button type="submit" class="boton-zona">Registrar Orientador</button> <button type="button"
+            onclick="location.href='/menu/directivo'" class="boton-logout">Volver</button>
+    </form><br>
+
+    <div class="tabla-container">
+        <table border="1" class="tabla-alumnos">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Número de Empleado</th>
+                    <th>Grupos que Atiende</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="tbody-alumnos">
+                {% for orientador in orientadores %}
+                <tr>
+                    <td>{{ orientador.nombre }}</td>
+                    <td>{{ orientador.numero_empleado }}</td>
+                    <td>{{ orientador.grupos_atiende }}</td>
+                    <td>
+                        <button
+                            onclick="location.href='{{ url_for('editar_orientador', numero_empleado=orientador.numero_empleado) }}'"
+                            class="boton-zona">Editar</button>
+                        <form method="POST"
+                            action="{{ url_for('eliminar_orientador', numero_empleado=orientador.numero_empleado) }}"
+                            style="display:inline;">
+                            <button type="submit" class="boton-logout"
+                                onclick="return confirm('¿Estás seguro de que deseas eliminar este orientador?');">Eliminar</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<img src="/static/Cecytem_(Imagen).jpeg" class="fondo-menu">
+
+{% endblock %}

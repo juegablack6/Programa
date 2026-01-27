@@ -394,14 +394,74 @@ VALUES
 
 
 CREATE TABLE docentes(
-noempleado int primary key not null,
-materia varchar(50),
-usuario varchar(255),
-correo varchar(255),
-contrasena varchar(255),
-numtelefono varchar(25));
-delete from docentes;
-select * from docentes;	
+nombre VARCHAR(200),
+numero_empleado VARCHAR(200) PRIMARY KEY,
+fecha_ingreso VARCHAR(200),
+perfil_profesional VARCHAR(200),
+asignaturas VARCHAR(200)
+);
+DROP TABLE docentes;
+
+INSERT INTO docentes (nombre, numero_empleado, fecha_ingreso, perfil_profesional, asignaturas)
+VALUES ('CASTANEDA NAVA RUBEN', 12581, '2021-09-01', 'LICENCIATURA COMO INGENIERO PETROLERO', 'MATERIA Y ENERGIA E, PENSAMIENTO MATEMATICO I, PENSAMIENTO MATEMATICO III');
+
+INSERT INTO docentes (nombre, numero_empleado, fecha_ingreso, perfil_profesional, asignaturas)
+VALUES ('SEDENO HERNANDEZ VICTOR HUGO', 10154, '2021-09-01', 'SISTEMAS COMPUTACIONALES', 'SISTEMAS COMPUTACIONALES, CONSTRUYE BASES DE DATOS PARA APLICACIONES WEB, DESARROLLA APLICACIONES WEB CON CONEXION A BASES DE DATOS, TEMAS SELECTOS DE MATEMATICAS II');
+
+INSERT INTO docentes (nombre, numero_empleado, fecha_ingreso, perfil_profesional, asignaturas)
+VALUES ('GARCIA ORTIZ SAMANTHA', 14642, '2022-08-16', 'LICENCIATURA EN LENGUA Y COMUNICACION', 'LENGUA Y COMUNICACION I, ORIENTACION EN LENGUA Y COMUNICACION I, TECNOLOGIA EDUCATIVA, ESTUDIOS LITERARIOS');
+
+INSERT INTO docentes (nombre, numero_empleado, fecha_ingreso, perfil_profesional, asignaturas)
+VALUES ('LEYVA SANTIAGO KARINA', 14010, '2023-08-16', 'LICENCIATURA EN INFORMATICA', 'APLICA METODOLOGIAS AGILES PARA EL DESARROLLO DE SOFTWARE');
+
+INSERT INTO docentes (nombre, numero_empleado, fecha_ingreso, perfil_profesional, asignaturas)
+VALUES ('ENTZANA SEGURA ANA BEL', 9763, '2014-08-16', 'LICENCIATURA COMO INGENIERO BIOQUIMICO', 'DESARROLLO DE SOFTWARE, LA MATERIA Y SUS INTERACCIONES, LA ENERGIA EN LOS PROCESOS DE LA VIDA DIARIA');
+
+INSERT INTO docentes (nombre, numero_empleado, fecha_ingreso, perfil_profesional, asignaturas)
+VALUES ('IBANEZ MONTIEL SERGIO', 9766, '2014-08-16', 'LICENCIATURA EN INGENIERIA EN SISTEMAS COMPUTACIONALES', 'EMPLEA FRAMEWORKS PARA EL DESARROLLO DE SOFTWARE, APLICA METODOLOGIAS AGILES PARA EL DESARROLLO DE SOFTWARE');
+
+INSERT INTO docentes (nombre, numero_empleado, fecha_ingreso, perfil_profesional, asignaturas)
+VALUES ('NAVA IBANEZ RITA LIZETH', 9034, '2013-03-01', 'LICENCIATURA EN INFORMATICA', 'CULTURA DIGITAL I');
+
+INSERT INTO docentes (nombre, numero_empleado, fecha_ingreso, perfil_profesional, asignaturas)
+VALUES ('BENITEZ RAMIREZ MARIA DE JESUS', 16031, '2025-09-01', 'EDUCACION GENERAL 15', 'INGLES V');
+
+INSERT INTO docentes (nombre, numero_empleado, fecha_ingreso, perfil_profesional, asignaturas)
+VALUES ('ESTRADA SOLIS ALDAIR', 14845, '2025-09-01', 'LICENCIATURA EN INGENIERIA EN TECNOLOGIAS DE LA INFORMACION', 'CONSTRUYE BASES DE DATOS PARA APLICACIONES WEB, DESARROLLA APLICACIONES WEB CON CONEXION A BASES DE DATOS');
+
+INSERT INTO docentes (nombre, numero_empleado, fecha_ingreso, perfil_profesional, asignaturas)
+VALUES ('JACOBO MENDOZA ADA GUADALUPE', 15501, '2025-09-01', 'LICENCIATURA EN PSICOLOGIA', 'HUMANIDADES I, HUMANIDADES II');
+
+INSERT INTO docentes (nombre, numero_empleado, fecha_ingreso, perfil_profesional, asignaturas)
+VALUES ('LUCAS REYES ALBERTO YAEL', 16564, '2025-09-01', 'INGENIERO EN SISTEMAS COMPUTACIONALES', 'APLICACIONES DE PENSAMIENTO MATEMATICO');
+
+INSERT INTO docentes (nombre, numero_empleado, fecha_ingreso, perfil_profesional, asignaturas)
+VALUES ('RAMIREZ HERNANDEZ MARIANA', 14035, '2025-09-01', 'LICENCIATURA EN PSICOLOGIA/ GENERAL 15', 'INGLES I, INGLES III');
+
+INSERT INTO docentes (nombre, numero_empleado, fecha_ingreso, perfil_profesional, asignaturas)
+VALUES ('ROJAS AGUILAR AMEYATZIN', 16049, '2025-09-01', 'LICENCIATURA EN SOCIOLOGIA', 'CONCIENCIA HISTORICA II, MEXICO ACTUAL: EL EXPANSIONISMO CAPITALISTA');
+
+INSERT INTO docentes (nombre, numero_empleado, fecha_ingreso, perfil_profesional, asignaturas)
+VALUES ('URBINA PALOMARES ARCELIA', 16034, '2025-09-01', 'LICENCIATURA EN PEDAGOGIA/ MAESTRIA EN COMUNICACION ESTRATEGICA PARA GOBERNOS E INSTITUCIONES', 'CIENCIAS SOCIALES I, HUMANIDADES II');
+
+INSERT INTO docentes (nombre, numero_empleado, fecha_ingreso, perfil_profesional, asignaturas)
+VALUES ('VARGAS PRUDENCIO GERALDINE ARLETTE', 12484, '2025-09-01', 'LICENCIATURA EN INFORMATICA ADMINISTRATIVA', 'CONSTRUYE BASES DE DATOS PARA APLICACIONES WEB, DESARROLLA APLICACIONES WEB CON CONEXION A BASES DE DATOS');
+
+INSERT INTO docentes (nombre, numero_empleado, fecha_ingreso, perfil_profesional, asignaturas)
+VALUES ('MAQUEDA MARTINEZ ANA CRISTINA', 16662, NULL, NULL, 'ECOSISTEMAS: INTERACCION DINAMICA');
+
+CREATE TABLE orientadores(
+nombre VARCHAR(200),
+numero_empleado VARCHAR(200),
+grupos_atiende VARCHAR(200)
+);
+DROP TABLE orientadores;
+INSERT INTO orientadores (nombre, numero_empleado, grupos_atiende)
+VALUES 
+('Lic. Rubi Angélica Enguntza Garcia', 12051, '501,502,503,504'),
+('Lic. Guadalupe Jiménez Rosales', 14276, '101,102,103,104'),
+('Lic. Mayra Neri Montoya', 12052, '301,302,303,304');
+
 
 CREATE TABLE alumnos(
 NumeroControl bigint primary key not null,
@@ -468,7 +528,8 @@ ADD COLUMN cargo VARCHAR(100) NULL,
 ADD COLUMN fecha_ingreso DATE NULL;
 
 SELECT * FROM usuarios;
-DELETE FROM usuarios where id = 2147483647;
+UPDATE usuarios SET correo = "santiagomendezgarcia60@gmail.com" WHERE id = 1;
+DELETE FROM usuarios where id = 3;
 UPDATE usuarios SET activo = 1 WHERE id= 1;
 
 USE proyecto;
@@ -486,3 +547,4 @@ CREATE TABLE reportes (
 SELECT * FROM reportes;
 DROP TABLE reportes;
 SELECT * FROM chat_general;
+

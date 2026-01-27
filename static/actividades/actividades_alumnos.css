@@ -180,6 +180,11 @@ table tbody tr:last-child td {
 .imagen-felicidad {
     margin-top: 0%;
     width: 15%;
+    border: none;
     border-radius: 10px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 4px 8px #00000000;
+    transition: background-color 0.3s;
+    animation: slideIn 0.8s ease forwards;
+    opacity: 0;
+    transform: translateY(-90px);
 }

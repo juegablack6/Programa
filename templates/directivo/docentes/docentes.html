@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Editar Orientador{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="/static/orientadores/orientadores.css">
+<div class="container">
+    {% with messages = get_flashed_messages() %}
+    {% if messages %}
+    <ul class="flashes">
+        {% for message in messages %}
+        <li>{{ message }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+    {% endwith %}
+
+    <h1>Agregar docente</h1>
+    <form method="POST" action="{{ url_for('docentes_en_sistema') }}">
+        <label for="numero_empleado">Número de Empleado</label><br>
+        <input type="number" id="numero_empleado" name="numero_empleado"
+            placeholder="Ingresa el número de empleado del docente." required><br><br>
+
+        <label for="nombre">Nombre</label><br>
+        <input type="text" id="nombre" name="nombre" placeholder="Ingresa el nombre del docente." required><br><br>
+
+        <label for="fecha_ingreso">Fecha de Ingreso</label><br>
+        <input type="date" id="fecha_ingreso" name="fecha_ingreso" required><br><br>
+
+        <label for="perfil_profesional">Perfil Profesional</label><br>
+        <input type="text" id="perfil_profesional" name="perfil_profesional"
+            placeholder="Ingresa el perfil profesional del docente." required><br><br>
+
+        <label for="asignaturas">Asignaturas (separadas por comas)</label><br>
+        <input type="text" id="asignaturas" name="asignaturas" placeholder="Ejemplo: Matemáticas, Física, Química"
+            required><br><br>
+
+        <button type="submit" class="boton-zona">Registrar Docente</button> <button type="button"
+            onclick="location.href='/menu/directivo'" class="boton-logout">Volver</button>
+    </form><br>
+
+    <div class="tabla-container">
+        <h1>Lista de Docentes</h1>
+        <table border="1" class="tabla-alumnos">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Número de Empleado</th>
+                    <th>Fecha de Ingreso</th>
+                    <th>Perfil Profesional</th>
+                    <th>Asignaturas</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for docente in docentes %}
+                <tr>
+                    <td>{{ docente.nombre }}</td>
+                    <td>{{ docente.numero_empleado }}</td>
+                    <td>{{ docente.fecha_ingreso }}</td>
+                    <td>{{ docente.perfil_profesional }}</td>
+                    <td>{{ docente.asignaturas }}</td>
+                    <td>
+                        <button
+                            onclick="location.href='{{ url_for('editar_docente', numero_empleado=docente.numero_empleado) }}'"
+                            class="boton-zona">Editar</button>
+                        <form method="POST"
+                            action="{{ url_for('eliminar_docente', numero_empleado=docente.numero_empleado) }}"
+                            style="display:inline;">
+                            <button type="submit" class="boton-logout"
+                                onclick="return confirm('¿Estás seguro de que deseas eliminar este docente?');">Eliminar</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <img src="/static/Cecytem_(Imagen).jpeg" class="fondo-menu">
+    {% endblock %}

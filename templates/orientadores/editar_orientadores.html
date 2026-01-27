@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Editar Orientador{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="/static/orientadores/orientadores.css">
+<div class="container">
+    {% with messages = get_flashed_messages() %}
+    {% if messages %}
+    <ul class="flashes">
+        {% for message in messages %}
+        <li>{{ message }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+    {% endwith %}
+    <form method="POST" action="{{ url_for('editar_orientador', numero_empleado=orientador.numero_empleado) }}">
+        <h1>Editar Orientador {{ orientador.nombre }}</h1>
+
+        <label for="nombre">Nombre:</label><br>
+        <input type="text" id="nombre" name="nombre" value="{{ orientador.nombre }}"> <br><br>
+
+        <label for="grupos_atiende">Grupos que atiende <br>{{ orientador.nombre }}:</label><br>
+        <input type="text" id="grupos_atiende" name="grupos_atiende" value="{{ orientador.grupos_atiende }}"><br><br>
+
+        <button type="submit" class="boton-zona">Guardar Cambios</button> <button type="button" class="boton-logout"
+            onclick="location.href='/directivos/orientadores'">Cancelar</button>
+    </form>
+</div>
+<img src="/static/Cecytem_(Imagen).jpeg" class="fondo-menu">
+{% endblock %}
