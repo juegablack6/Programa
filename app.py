@@ -169,7 +169,7 @@ def login_required(*roles):
 @app.route("/", methods=["GET", "POST"]) 
 @public_access 
 def inicio(): 
-    return redirect(url_for("login_general")) 
+    return redirect(url_for("login_tabla")) 
  
 # ----------------------------------------------------- 
 # --- RUTAS DE ALUMNOS ------------------------------- 
@@ -181,6 +181,8 @@ def menu_alumnos():
     cursor = db.cursor()
 
     alumno = session.get("nombre_completo") or session.get("usuario") or "Alumno"
+    paterno = session.get("paterno") or "No Paterno"
+    materno = session.get("materno") or "No Materno"
     num_control = session.get("user_id")  # tu NC / ID real
 
     # Total actividades
@@ -230,6 +232,8 @@ def menu_alumnos():
     return render_template(
         "menus/menu_alumno.html",
         alumno=alumno,
+        paterno=paterno,
+        materno=materno,
         total_actividades=total_actividades,
         entregadas=entregadas,
         no_entregadas=no_entregadas,
@@ -384,7 +388,7 @@ def logout_docentes():
 @app.route("/menu/docentes", methods=["GET"])
 @login_required("docente")
 def menu_docentes():
-    docente = session.get("nombre_completo") or "Docente"
+    docente = session.get("nombre_completo") or session.get("usuario") or "Docente"
     cursor = db.cursor(dictionary=True)
 
     cursor.execute("SELECT COUNT(*) AS total FROM actividades")
@@ -439,7 +443,7 @@ def volver_ayuda():
 @app.route("/menu/directivo", methods=["GET"])
 @login_required("directivo")
 def menu_directivo():
-    directivo = session.get("usuario") or "Directivo"
+    directivo = session.get("nombre_completo") or session.get("usuario") or "Directivo"
     cursor = db.cursor(dictionary=True)
 
     # Contar docentes en usuarios con rol = 'docente'
@@ -1404,220 +1408,107 @@ def volver_menus():
 @app.route("/login/general", methods=["GET", "POST"])
 def login_general():
     if request.method == "POST":
-        identificador = request.form.get("usuario")
-        password = request.form.get("contrasena")
+        numero_identificador = request.form.get("usuario")  # Número de control/empleado
+        password = request.form.get("contrasena")  # CURP/nombre/puesto
         if session == "alumno":
             return redirect(url_for("menu_alumnos"))
         cursor = db.cursor(dictionary=True)
 
+        # 🔍 BÚSQUEDA EN ALUMNOS
         cursor.execute("""
             SELECT 
-                id, usuario, correo, contrasena, rol, nombre_completo,
-                activo, intentos_fallidos, bloqueado_hasta,
-                bloqueado_hasta > NOW() AS bloqueado
-            FROM usuarios
-            WHERE usuario=%s OR correo=%s
-        """, (identificador, identificador))
+                NumeroControl as id,
+                Curp as password_field,
+                Nombre as nombre_completo,
+                Nombre as nombre,
+                Paterno as paterno,
+                Materno as materno,
+                'alumno' as rol_identificado
+            FROM alumnos
+            WHERE NumeroControl = %s OR CAST(NumeroControl AS CHAR) = %s
+        """, (numero_identificador, numero_identificador))
 
         user = cursor.fetchone()
+        print(f"DEBUG - Usuario encontrado: {user}")  # DEBUG
 
         if not user:
-            flash("Credenciales incorrectas", "error")
-            cursor.close()
-            return redirect(url_for("login_general"))
-
-        # 🚨 Cuenta no activada
-        if not user["activo"]:
-            flash("Debes activar tu cuenta primero.", "warning")
-            cursor.close()
-            return redirect(url_for("login_general"))
-
-        # 🧹 Si el bloqueo ya expiró → resetear
-        if user["bloqueado_hasta"] and not user["bloqueado"]:
+            # 🔍 BÚSQUEDA EN DOCENTES
             cursor.execute("""
-                UPDATE usuarios
-                SET intentos_fallidos = 0,
-                    bloqueado_hasta = NULL
-                WHERE id = %s
-            """, (user["id"],))
-            db.commit()
-            user["intentos_fallidos"] = 0
+                SELECT 
+                    CAST(numero_empleado AS UNSIGNED) as id,
+                    perfil_profesional as password_field,
+                    nombre as nombre_completo,
+                    'docente' as rol_identificado
+                FROM docentes
+                WHERE numero_empleado = %s OR CAST(numero_empleado AS CHAR) = %s
+            """, (numero_identificador, numero_identificador))
 
-        # ⏳ Cuenta bloqueada
-        if user["bloqueado"]:
-            flash("Cuenta bloqueada por 1 minuto. Intenta más tarde.", "error")
+            user = cursor.fetchone()
+
+        if not user:
+            # 🔍 BÚSQUEDA EN DIRECTIVOS
+            cursor.execute("""
+                SELECT 
+                    numero_empleado as id,
+                    puesto as password_field,
+                    nombre as nombre_completo,
+                    'directivo' as rol_identificado
+                FROM directivos
+                WHERE numero_empleado = %s OR CAST(numero_empleado AS CHAR) = %s
+            """, (numero_identificador, numero_identificador))
+
+            user = cursor.fetchone()
+
+        if not user:
+            flash("Número de control/empleado no encontrado.", "error")
             cursor.close()
             return redirect(url_for("login_general"))
 
-        # ❌ Contraseña incorrecta
-        if not check_password_hash(user["contrasena"], password):
-            intentos = user["intentos_fallidos"] + 1
-
-            if intentos >= 3:
-                cursor.execute("""
-                    UPDATE usuarios
-                    SET intentos_fallidos = %s,
-                        bloqueado_hasta = DATE_ADD(NOW(), INTERVAL 1 MINUTE)
-                    WHERE id = %s
-                """, (intentos, user["id"]))
-                flash("Demasiados intentos. Cuenta bloqueada por 1 minuto.", "error")
-            else:
-                cursor.execute("""
-                    UPDATE usuarios
-                    SET intentos_fallidos = %s
-                    WHERE id = %s
-                """, (intentos, user["id"]))
-                flash(f"Contraseña incorrecta ({intentos}/3)", "error")
-
-            db.commit()
+        # ❌ Validar contraseña (CURP/nombre/puesto)
+        if user["password_field"] != password:
+            flash("CURP/Nombre/Puesto incorrecto.", "error")
             cursor.close()
             return redirect(url_for("login_general"))
 
-        # ✅ LOGIN CORRECTO → resetear intentos
-        cursor.execute("""
-            UPDATE usuarios
-            SET intentos_fallidos = 0,
-                bloqueado_hasta = NULL
-            WHERE id = %s
-        """, (user["id"],))
-        db.commit()
-
+        # ✅ LOGIN CORRECTO
         # 🔐 Sesión
         session.clear()
         session.permanent = True
         session["user_id"] = user["id"]
-        session["usuario"] = user["usuario"]
-        session["correo"] = user["correo"]
-        session["rol"] = user["rol"]
+        session["usuario"] = numero_identificador
+        session["rol"] = user["rol_identificado"]
         session["nombre_completo"] = user["nombre_completo"]
-
+        
+        # 👤 Datos adicionales para alumnos - Guardar todos los datos disponibles
+        if user["rol_identificado"] == "alumno":
+            # Intentar obtener paterno y materno, si no existen guardar vacío
+            paterno_val = user.get("paterno") if user.get("paterno") else ""
+            materno_val = user.get("materno") if user.get("materno") else ""
+            session["paterno"] = paterno_val.strip() if paterno_val else ""
+            session["materno"] = materno_val.strip() if materno_val else ""
+            print(f"DEBUG - Sesión guardada: paterno={session.get('paterno')}, materno={session.get('materno')}")  # DEBUG
+        
         session["ultima_actividad"] = datetime.now().isoformat()
 
         cursor.close()
 
-        # 🔁 Redirección
-        if user["rol"] == "alumno":
+        # 🔁 Redirección según el rol detectado
+        if user["rol_identificado"] == "alumno":
             return redirect(url_for("menu_alumnos"))
-        elif user["rol"] == "docente":
+        elif user["rol_identificado"] == "docente":
             return redirect(url_for("menu_docentes"))
-        elif user["rol"] == "directivo":
+        elif user["rol_identificado"] == "directivo":
             return redirect(url_for("menu_directivo"))
         else:
-            return redirect(url_for("menu_alumnos"))
+            flash("No se pudo determinar el tipo de usuario.", "error")
+            return redirect(url_for("login_general"))
 
-        if "docente" not in session: 
-            flash("Debes iniciar sesión como docente primero.") 
-            return redirect(url_for("login_docentes")) 
-        return f(*args, **kwargs) 
     return render_template("login/general/general.html")
- 
+
 @app.route("/registro/general", methods=["GET", "POST"])
 def registro_general():
     if request.method == "POST":
-        # Datos generales
-        id_usuario = request.form.get("id")
-        usuario = request.form.get("usuario")
-        correo = request.form.get("correo")
-        password = request.form.get("contrasena")
-        confirmar = request.form.get("confirmar_contrasena")
-        rol = request.form.get("rol")
-
-        # Datos extra
-        grupo = request.form.get("grupo")
-        semestre = request.form.get("semestre")
-        materia = request.form.get("materia")
-        
-        # Datos para directivos
-        numero_telefono = request.form.get("numero_telefono")
-        departamento = request.form.get("departamento")
-        cargo = request.form.get("cargo")
-        fecha_ingreso = request.form.get("fecha_ingreso")
-
-        # Validación básica
-        if password != confirmar:
-            flash("Las contraseñas no coinciden", "error")
-            return redirect(url_for("registro_general"))
-
-        hash_pw = generate_password_hash(password)
-        token = secrets.token_urlsafe(32)
-
-        cursor = db.cursor()
-
-        # Verificar si ya existe
-        cursor.execute("""
-            SELECT id FROM usuarios
-            WHERE id=%s OR usuario=%s OR correo=%s
-        """, (id_usuario, usuario, correo))
-
-        if cursor.fetchone():
-            flash("Usuario, correo o ID ya existe", "error")
-            return redirect(url_for("registro_general"))
-
-        # INSERT limpio (sin duplicados)
-        sql = """
-        INSERT INTO usuarios (
-            id, usuario, correo, contrasena, rol,
-            grupo, semestre, materia,
-            telefono, departamento, cargo, fecha_ingreso,
-            activo, token_confirmacion
-        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-        """
-
-        values = (
-            id_usuario,
-            usuario,
-            correo,
-            hash_pw,
-            rol,
-            grupo if rol == "alumno" else None,
-            semestre if rol == "alumno" else None,
-            materia if rol == "docente" else None,
-            numero_telefono if rol == "directivo" else None,
-            departamento if rol == "directivo" else None,
-            cargo if rol == "directivo" else None,
-            fecha_ingreso if rol == "directivo" else None,
-            0,          # activo = FALSE
-            token
-        )
-
-        cursor.execute(sql, values)
-        db.commit()
-
-        # 🔐 Si es directivo, no enviar correo automático - requiere verificación manual
-        if rol == "directivo":
-            cursor.close()
-            flash("Cuenta creada. Por favor, pídele a un administrador o algún directivo que active tu cuenta. Gracias por registrarte en nuestra página web.", "info")
-            return redirect(url_for("login_general"))
-
-        # 📧 Para alumnos y docentes: enviar correo de confirmación
-        # Links de confirmación
-        link_confirmar = url_for("confirmar_cuenta", token=token, _external=True)
-        link_cancelar = url_for("cancelar_cuenta", token=token, _external=True)
-
-        mensaje = f"""
-Hola {usuario},
-
-Confirma tu cuenta aquí:
-{link_confirmar}
-
-Si no fuiste tú, cancela el registro:
-{link_cancelar}
-"""
-
-        enviado = enviar_correo(
-            correo,
-            "Confirma tu cuenta",
-            mensaje
-        )
-
-        if not enviado:
-            flash("Error al enviar el correo de confirmación", "error")
-            return redirect(url_for("registro_general"))
-
-        cursor.close()
-        flash("Cuenta creada. Revisa tu correo para activarla.", "success")
-        return redirect(url_for("login_general"))
-
+        flash("Campo actualmente inutilizado.", "alert")
     return render_template("registro/general/general.html")
  
 @app.route("/confirmar/<token>")
@@ -2229,9 +2120,70 @@ def editar_docente(numero_empleado):
         cursor.close()
         return render_template('/directivo/docentes/editar_docentes.html', docente=docente)
 
+@app.route("/directivo/directivos", methods=['GET','POST'])
+@login_required('directivo')
+def directivos_en_sistema():
+    if request.method == 'POST':
+        try:    
+            nombre = request.form['nombre']
+            puesto = request.form['puesto']
+            numero_empleado = request.form['numero_empleado']
+            cursor = db.cursor()
+            sql = "INSERT INTO directivos (nombre, puesto, numero_empleado) VALUES (%s, %s, %s)"
+            cursor.execute(sql, (nombre, puesto, numero_empleado))
+            db.commit()
+            cursor.close()
+            flash("Directivo ingresado correctamente.", "success")
+            return redirect('/directivo/directivos')
+        except Exception as e:
+            flash(f"Ha ocurrido un error {e}", "error")
+            return redirect('/directivo/directivos')
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("SELECT nombre, puesto, numero_empleado FROM directivos")
+    directivos = cursor.fetchall()
+    cursor.close()
+    return render_template('/directivo/directivos/directivos.html', directivos=directivos)
+
+
+@app.route('/directivo/directivos/eliminar/<int:numero_empleado>', methods=['GET', 'POST'])
+@login_required('directivo')
+def eliminar_directivo(numero_empleado):
+    cursor = db.cursor()
+    try:
+        sql = "DELETE FROM directivos WHERE numero_empleado=%s"
+        cursor.execute(sql, (numero_empleado,))
+        db.commit()
+        cursor.close()
+        flash("Docente eliminado correctamente", "success")
+        return redirect('/directivo/directivos')
+    except Exception as e:
+        flash(f"Error al eliminar: {e}", "error")
+        return redirect('/directivo/directivos')
+    
+@app.route('/directivo/directivo/editar/<int:numero_empleado>', methods=['GET', 'POST'])
+@login_required('directivo')
+def editar_directivo(numero_empleado):
+    cursor  = db.cursor(dictionary=True)
+    if request.method == 'POST':
+            nombre = request.form['nombre']
+            puesto = request.form['puesto']
+            sql = "UPDATE directivos SET nombre=%s, puesto=%s WHERE numero_empleado=%s"
+            cursor.execute(sql, (nombre, puesto, numero_empleado))
+            db.commit()
+            cursor.close()
+            flash("Docente actualizado correctamente", "success")
+            return redirect('/directivo/directivos')
+    else:
+        cursor.execute("SELECT * FROM directivos WHERE numero_empleado=%s", (numero_empleado,))
+        directivos = cursor.fetchone()
+        cursor.close()
+        return render_template('/directivo/directivos/editar_directivos.html', directivos=directivos)
+
+
+
 # ----------------------------------------------------- 
 # --- PUNTO DE ENTRADA DE LA APLICACIÓN --------------- 
 # ----------------------------------------------------- 
 if __name__ == "__main__": 
     socketio.run(app, debug=True) 
-# Se cambio la funcion 'app.run' por 'socketio.run' para que el chat funcione correctamente 
+# Se cambio la funcion 'app.run' por 'socketio.run' para que el chat funcione correctamente 8

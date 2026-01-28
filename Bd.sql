@@ -463,6 +463,37 @@ VALUES
 ('Lic. Mayra Neri Montoya', 12052, '301,302,303,304');
 
 
+
+CREATE TABLE docentes(
+nombre VARCHAR(200),
+numero_empleado VARCHAR(200) PRIMARY KEY,
+fecha_ingreso VARCHAR(200),
+perfil_profesional VARCHAR(200),
+asignaturas VARCHAR(200)
+);
+DROP TABLE directivoss;
+
+
+SELECT * FROM directivos;
+USE proyecto;
+CREATE TABLE directivos(
+nombre VARCHAR(200),
+puesto VARCHAR(200),
+numero_empleado BIGINT PRIMARY KEY NOT NULL
+);
+DROP TABLE directivos;
+INSERT INTO directivos (nombre, puesto, numero_empleado) VALUES ('Mtra.Amalia Leonila, Toledo Lopez', 'directora del plantel', 6819);
+INSERT INTO directivos (nombre, puesto, numero_empleado) VALUES ('Ing. Violwr xLusio Laguna', 'Subdirectora', 10906);
+INSERT INTO directivos (nombre, puesto, numero_empleado) VALUES ('Mtra. Karla Ivonne Nava Nava' 'Coordinadora académica de plantel', 9171);
+
+
+
+
+
+
+
+SELECT * FROM directivos; 
+
 CREATE TABLE alumnos(
 NumeroControl bigint primary key not null,
 Curp Varchar(255),
@@ -488,13 +519,6 @@ telefono varchar(40)
 CREATE TABLE visita(
 usuario varchar(30) primary key not null,
 objetivo varchar(100),
-contrasena varchar(255),
-email varchar(255),
-telefono varchar(40)
-);
-CREATE TABLE admin(
-noadmin int primary key not null,
-usuario varchar(30),
 contrasena varchar(255),
 email varchar(255),
 telefono varchar(40)

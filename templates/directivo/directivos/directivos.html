@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Editar Orientador{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="/static/orientadores/orientadores.css">
+<div class="container">
+    {% with messages = get_flashed_messages() %}
+    {% if messages %}
+    <ul class="flashes">
+        {% for message in messages %}
+        <li>{{ message }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+    {% endwith %}
+
+    <h1>Agregar directivo</h1>
+    <form method="POST" action="{{ url_for('directivos_en_sistema') }}">
+
+        <label for="numero_empleado">Número de Empleado</label><br>
+        <input type="number" id="numero_empleado" name="numero_empleado"
+            placeholder="Ingresa el número de empleado del directivo." required><br><br>
+
+        <label for="nombre">Nombre</label><br>
+        <input type="text" id="nombre" name="nombre" placeholder="Ingresa el nombre del directivo." required><br><br>
+
+        <label for="puesto">Puesto</label><br>
+        <input type="text" id="puesto" name="puesto" required><br><br>
+
+        <button type="submit" class="boton-zona">Ingresar</button> <button type="button" class="boton-logout"
+            onclick="location.href='/menu/directivo'">Volver</button>
+    </form><br>
+
+    <div class="tabla-container">
+        <table border="1" class="tabla-alumnos">
+            <thead>
+                <tr>
+                    <th>Numero de empleado</th>
+                    <th>Nombre</th>
+                    <th>Puesto</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for directivo in directivos %}
+                <tr>
+                    <td>{{ directivo.numero_empleado }}</td>
+                    <td>{{ directivo.nombre }}</td>
+                    <td>{{ directivo.puesto }}</td>
+                    <td>
+                        <button
+                            onclick="location.href='{{ url_for('editar_directivo', numero_empleado=directivo.numero_empleado) }}'"
+                            class="boton-zona">Editar</button>
+                        <form method="POST"
+                            action="{{ url_for('eliminar_directivo', numero_empleado=directivo.numero_empleado) }}"
+                            style="display:inline;">
+                            <button type="submit" class="boton-logout"
+                                onclick="return confirm('¿Estás seguro de que deseas eliminar este directivo?');">Eliminar</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <img src="/static/Cecytem_(Imagen).jpeg" class="fondo-menu">
+    {% endblock %}

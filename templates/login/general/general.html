@@ -24,23 +24,18 @@
             {% endwith %}
             <h1 class="login-texto">Login general</h1>
 
-            <!-- ← CAMBIADO: Etiqueta y name del input para el identificador (usuario o email) -->
-            <label for="identificador">Usuario o Email:</label>
-            <input type="text" id="identificador" name="usuario" placeholder="Usuario o Email" autocomplete="username"
-                required><br>
+            <label for="usuario">Número de Control / Número de Empleado:</label>
+            <input type="text" id="usuario" name="usuario" placeholder="Ingresa tu número de control o empleado"
+                autocomplete="username" required><br>
 
             <label for="contrasena">Contraseña:</label>
             <input type="password" id="contrasena" name="contrasena" class="contrasena"
-                placeholder="Contraseña/Password" autocomplete="current-password" required><br>
+                placeholder="CURP / Perfil profesional / Puesto" autocomplete="current-password" required><br>
 
 
             <button type="submit" class="boton-loguear">Iniciar sesión</button>
 
-            <!-- ← CAMBIADO: Botón para ir al registro inicial -->
-            <button type="button" class="boton-loguear"
-                onclick="window.location.href='{{ url_for('registro_general') }}'">¿Necesitas crear una cuenta?</button>
-
-            <!-- ← CAMBIADO: Origen de la ayuda para login_inicial -->
+            <!-- Botón de ayuda -->
             <button type="button" onclick="window.location.href='{{ url_for('ayuda', from_='login_general') }}'"
                 class="ayuda-login">Distraete un rato</button>
         </div>
