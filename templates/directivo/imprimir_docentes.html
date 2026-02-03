@@ -12,7 +12,7 @@
     <div class="container">
         <div class="encabezado">
             <h1>👨‍🏫 DIRECTORIO DE DOCENTES</h1>
-            <p>Instituto Tecnológico de Celaya - CECYTEM</p>
+            <p>Colegio de Estudios Científicos y Tecnológicos del Estado de México - CECYTEM</p>
         </div>
 
         <div class="botones no-imprimir">
@@ -24,17 +24,19 @@
         <table>
             <thead>
                 <tr>
-                    <th>Usuario</th>
+                    <th>Numero de empleado</th>
                     <th>Nombre Completo</th>
-                    <th>Correo</th>
+                    <th>Fecha de Ingreso</th>
+                    <th>Perfil Profesional</th>
                 </tr>
             </thead>
             <tbody>
                 {% for docente in docentes %}
                 <tr>
-                    <td>{{ docente.usuario }}</td>
-                    <td>{{ docente.nombre_completo }}</td>
-                    <td>{{ docente.correo }}</td>
+                    <td>{{ docente.numero_empleado }}</td>
+                    <td>{{ docente.nombre }}</td>
+                    <td>{{ docente.fecha_ingreso }}</td>
+                    <td>{{ docente.perfil_profesional }}</td>
                 </tr>
                 {% endfor %}
             </tbody>

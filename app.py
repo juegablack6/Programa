@@ -169,7 +169,7 @@ def login_required(*roles):
 @app.route("/", methods=["GET", "POST"]) 
 @public_access 
 def inicio(): 
-    return redirect(url_for("login_tabla")) 
+    return redirect(url_for("login_general")) 
  
 # ----------------------------------------------------- 
 # --- RUTAS DE ALUMNOS ------------------------------- 
@@ -180,9 +180,12 @@ def inicio():
 def menu_alumnos():
     cursor = db.cursor()
 
-    alumno = session.get("nombre_completo") or session.get("usuario") or "Alumno"
-    paterno = session.get("paterno") or "No Paterno"
-    materno = session.get("materno") or "No Materno"
+    nombre = (session.get("nombre_completo") or session.get("usuario") or "Alumno").strip()
+    alumno = nombre.title()
+    ap = (session.get("paterno") or "No Paterno").strip()
+    paterno = ap.title()
+    am = session.get("materno") or "No Materno"
+    materno = am.title()
     num_control = session.get("user_id")  # tu NC / ID real
 
     # Total actividades
@@ -388,7 +391,8 @@ def logout_docentes():
 @app.route("/menu/docentes", methods=["GET"])
 @login_required("docente")
 def menu_docentes():
-    docente = session.get("nombre_completo") or session.get("usuario") or "Docente"
+    nombre = (session.get("nombre_completo") or session.get("usuario") or "Docente").strip()
+    docente = nombre.title()
     cursor = db.cursor(dictionary=True)
 
     cursor.execute("SELECT COUNT(*) AS total FROM actividades")
@@ -555,10 +559,9 @@ def directivo_imprimir_docentes():
     
     # Obtener todos los docentes de la tabla usuarios
     cursor.execute("""
-        SELECT usuario, nombre_completo, correo
-        FROM usuarios
-        WHERE rol = 'docente'
-        ORDER BY nombre_completo
+        SELECT nombre, numero_empleado, fecha_ingreso, perfil_profesional
+        FROM docentes
+        ORDER BY nombre
     """)
     
     docentes = cursor.fetchall()
@@ -728,10 +731,13 @@ def actividades_docentes():
     cursor.execute("SELECT * FROM actividades ORDER BY numero_actividad DESC")
     actividades = cursor.fetchall()
     cursor.close()
+    nombre_docente = (session.get("nombre_completo") or session.get("usuario") or "Docente").strip()
+    docente = nombre_docente.title()
 
     return render_template(
         "actividades/docentes/actividades_docentes.html",
-        actividades=actividades
+        actividades=actividades,
+        docente=docente
     )
 
 @app.route("/material_docente/<path:filename>")
